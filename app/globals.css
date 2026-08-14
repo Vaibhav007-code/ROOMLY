@@ -1,0 +1,598 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Inter:wght@400;500;600&display=swap');
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+/* ────────────────────────────────────────────────────────────
+   DESIGN TOKENS — Reception Key-Tag Board
+   ──────────────────────────────────────────────────────────── */
+:root {
+  /* Dark mode */
+  --ink:          #EDECEA;   /* primary body text — warm white */
+  --paper:        #0F0F0D;   /* page background */
+  --surface:      #1C1C1A;   /* card / input / nav surface */
+  --signal:       #F5C518;   /* accent yellow — headings, highlights */
+  --charcoal:     #9A9990;   /* secondary / muted text */
+  --fog:          #2E2E2C;   /* borders, dividers */
+  --signal-tint:  #2A2500;   /* hover / selected backgrounds */
+
+  /* spacing unit: 4px */
+  --sp1: 4px;
+  --sp2: 8px;
+  --sp3: 12px;
+  --sp4: 16px;
+  --sp5: 20px;
+  --sp6: 24px;
+  --sp8: 32px;
+  --sp10: 40px;
+  --sp12: 48px;
+}
+
+/* ────────────────────────────────────────────────────────────
+   RESET / BASE
+   ──────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  background-color: var(--paper);
+  color: var(--ink);
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-weight: 400;
+  min-height: 100vh;
+  line-height: 1.5;
+}
+
+/* ────────────────────────────────────────────────────────────
+   TYPOGRAPHY SCALE
+   ──────────────────────────────────────────────────────────── */
+/* Display — page titles use signal yellow */
+.display, h1 {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 28px;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--signal);
+}
+
+@media (min-width: 768px) {
+  .display, h1 { font-size: 40px; }
+}
+
+/* Section headers — yellow */
+h2, .section-title {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 1.2;
+  color: var(--signal);
+}
+
+h3, .subsection-title {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 18px;
+  line-height: 1.2;
+  color: var(--signal);
+}
+
+/* Body text — warm white */
+p, .body-text { font-size: 15px; color: var(--ink); line-height: 1.6; }
+
+/* Caption / labels */
+.caption, .label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--charcoal);
+  display: block;
+  margin: 0 0 var(--sp1);
+}
+
+/* Numeric / tabular data */
+.num, .tabular {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-size: inherit;
+}
+
+/* Muted / secondary text */
+.muted { color: var(--charcoal); }
+.text-brand { color: var(--signal); }
+
+/* ────────────────────────────────────────────────────────────
+   PAGE LAYOUT — mobile-first single column
+   ──────────────────────────────────────────────────────────── */
+.page {
+  max-width: 860px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 76px var(--sp4) 100px;
+}
+
+@media (min-width: 768px) {
+  .page {
+    padding-top: 88px;
+    padding-bottom: var(--sp12);
+    padding-left: var(--sp6);
+    padding-right: var(--sp6);
+  }
+}
+
+/* ────────────────────────────────────────────────────────────
+   CARD — flat, crisp, tag-edged
+   ──────────────────────────────────────────────────────────── */
+.card {
+  background-color: var(--surface);
+  border: 1px solid var(--fog);
+  border-radius: 8px;
+  padding: var(--sp5);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.card:hover {
+  border-color: var(--charcoal);
+}
+
+.card.card-signal {
+  border-color: var(--signal);
+  background-color: var(--signal-tint);
+}
+
+/* ────────────────────────────────────────────────────────────
+   FORM INPUTS
+   ──────────────────────────────────────────────────────────── */
+input, select, textarea {
+  width: 100%;
+  border: 1px solid var(--fog);
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 15px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  min-height: 44px;
+}
+
+input::placeholder, select::placeholder, textarea::placeholder {
+  color: var(--charcoal);
+  opacity: 0.7;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--signal);
+  box-shadow: 0 0 0 3px rgba(245,197,24,0.12);
+}
+
+select option {
+  background-color: var(--surface);
+  color: var(--ink);
+}
+
+/* ────────────────────────────────────────────────────────────
+   BUTTONS — ink/paper system
+   ──────────────────────────────────────────────────────────── */
+button { font-family: inherit; cursor: pointer; }
+
+/* Primary — signal yellow button */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp2);
+  border-radius: 6px;
+  padding: 10px 18px;
+  background-color: var(--signal);
+  color: #0A0A0A;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  border: 1px solid var(--signal);
+  cursor: pointer;
+  transition: background-color 0.15s ease, opacity 0.15s ease, transform 0.1s ease;
+  text-decoration: none;
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.btn:hover {
+  background-color: #d9ae0f;
+  border-color: #d9ae0f;
+  color: #0A0A0A;
+}
+
+.btn:active { transform: translateY(1px); }
+
+.btn:disabled, .btn[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Secondary — outline, visible on dark */
+.btn.secondary, .btn-secondary {
+  background-color: transparent;
+  color: var(--ink);
+  border: 1px solid var(--fog);
+}
+
+.btn.secondary:hover, .btn-secondary:hover {
+  border-color: var(--charcoal);
+  background-color: var(--fog);
+  color: var(--ink);
+}
+
+/* Danger — red-tinted outline */
+.btn.danger, .btn-danger {
+  background-color: transparent;
+  color: #ff8080;
+  border: 1px solid rgba(255,80,80,0.3);
+}
+
+.btn.danger:hover, .btn-danger:hover {
+  background-color: rgba(255,80,80,0.1);
+  color: #ffaaaa;
+  border-color: rgba(255,80,80,0.5);
+}
+
+/* Signal button variant (same as primary in dark mode) */
+.btn.signal {
+  background-color: var(--signal);
+  color: #0A0A0A;
+  border-color: var(--signal);
+}
+
+.btn.signal:hover {
+  background-color: #d9ae0f;
+  border-color: #d9ae0f;
+}
+
+/* Small variant */
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
+  border-radius: 4px;
+  min-height: 36px;
+}
+
+/* Button group — ensure wrap + gap on mobile */
+.btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp2);
+  align-items: center;
+}
+
+/* ────────────────────────────────────────────────────────────
+   ROOM TAG CHIPS — the signature motif
+   ──────────────────────────────────────────────────────────── */
+.room-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  transition: background-color 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+/* Available — signal yellow tag */
+.room-tag.available {
+  background-color: var(--signal);
+  color: var(--ink);
+}
+
+/* Fully occupied — ink tag, paper text */
+.room-tag.occupied {
+  background-color: var(--ink);
+  color: var(--paper);
+}
+
+/* Partially occupied — fog tag, charcoal text */
+.room-tag.partial {
+  background-color: var(--fog);
+  color: var(--charcoal);
+  border: 1px solid var(--charcoal);
+}
+
+/* ────────────────────────────────────────────────────────────
+   STATUS BADGES — ink/signal/charcoal only (no extra hues)
+   ──────────────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+/* Active / Paid / Resolved — signal yellow */
+.badge-active, .badge-paid, .badge-resolved {
+  background-color: var(--signal);
+  color: #0A0A0A;
+  border: 1px solid #d9ae0f;
+}
+
+/* Pending / Due / Open — fog surface */
+.badge-pending, .badge-due, .badge-open {
+  background-color: var(--fog);
+  color: var(--ink);
+  border: 1px solid var(--charcoal);
+}
+
+/* Overdue / Rejected — red tint */
+.badge-overdue, .badge-rejected {
+  background-color: rgba(255,80,80,0.15);
+  color: #ff8080;
+  border: 1px solid rgba(255,80,80,0.4);
+}
+
+/* Inactive */
+.badge-inactive {
+  background-color: var(--fog);
+  color: var(--charcoal);
+  border: 1px solid var(--fog);
+  opacity: 0.8;
+}
+
+/* ────────────────────────────────────────────────────────────
+   NAVIGATION — DESKTOP TOP HEADER
+   ──────────────────────────────────────────────────────────── */
+.nav-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: rgba(15, 15, 13, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--fog);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--sp6);
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.nav-link {
+  color: var(--charcoal);
+  text-decoration: none;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 6px;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+}
+
+.nav-link:hover {
+  color: var(--ink);
+  background-color: var(--fog);
+}
+
+.nav-link.active {
+  color: var(--signal);
+  background-color: var(--signal-tint);
+  font-weight: 700;
+  border: 1px solid var(--signal);
+}
+
+/* ────────────────────────────────────────────────────────────
+   NAVIGATION — MOBILE BOTTOM BAR
+   ──────────────────────────────────────────────────────────── */
+.nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(15, 15, 13, 0.97);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid var(--fog);
+  display: flex;
+  justify-content: space-around;
+  padding: 8px 4px;
+  z-index: 45;
+}
+
+.nav a {
+  color: var(--charcoal);
+  text-decoration: none;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  min-height: 44px;
+  justify-content: center;
+  transition: color 0.15s, background-color 0.15s;
+  min-width: 0;
+  flex: 1;
+  max-width: 72px;
+}
+
+.nav a.active {
+  color: var(--signal);
+  font-weight: 700;
+  background-color: var(--signal-tint);
+}
+
+@media (min-width: 768px) {
+  .nav { display: none; }
+}
+
+/* ────────────────────────────────────────────────────────────
+   MODAL
+   ──────────────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 10, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+}
+
+@media (min-width: 640px) {
+  .modal-overlay {
+    align-items: center;
+    padding: var(--sp4);
+  }
+}
+
+.modal-content {
+  background: var(--surface);
+  border-radius: 12px 12px 0 0;
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: var(--sp6);
+  box-shadow: 0 -8px 48px rgba(0,0,0,0.5);
+  border: 1px solid var(--fog);
+  color: var(--ink);
+}
+
+@media (min-width: 640px) {
+  .modal-content {
+    border-radius: 12px;
+    box-shadow: 0 24px 48px rgba(10,10,10,0.2);
+  }
+}
+
+/* ────────────────────────────────────────────────────────────
+   EMPTY STATE — dashed fog border
+   ──────────────────────────────────────────────────────────── */
+.empty-state {
+  border: 2px dashed var(--fog);
+  border-radius: 8px;
+  padding: var(--sp10) var(--sp6);
+  text-align: center;
+  color: var(--charcoal);
+}
+
+/* ────────────────────────────────────────────────────────────
+   LOADING SPINNER
+   ──────────────────────────────────────────────────────────── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(10,10,10,0.15);
+  border-top-color: var(--ink);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+.spinner.light {
+  border-color: rgba(250,250,248,0.3);
+  border-top-color: var(--paper);
+}
+
+/* ────────────────────────────────────────────────────────────
+   STATUS / FEEDBACK BANNERS
+   ──────────────────────────────────────────────────────────── */
+.banner {
+  padding: var(--sp3) var(--sp4);
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.banner.success {
+  background-color: var(--signal-tint);
+  border: 1px solid var(--signal);
+  color: var(--signal);
+}
+
+.banner.error {
+  background-color: rgba(255,80,80,0.08);
+  border: 1px solid rgba(255,80,80,0.3);
+  color: #ff8080;
+}
+
+.banner.info {
+  background-color: var(--fog);
+  border: 1px solid var(--fog);
+  color: var(--charcoal);
+}
+
+/* ────────────────────────────────────────────────────────────
+   DIVIDERS
+   ──────────────────────────────────────────────────────────── */
+.divider {
+  border: none;
+  border-top: 1px solid var(--fog);
+  margin: var(--sp4) 0;
+}
+
+/* ────────────────────────────────────────────────────────────
+   UTILITY — text overflow guard
+   ──────────────────────────────────────────────────────────── */
+.text-clamp {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* ────────────────────────────────────────────────────────────
+   REGISTER PAGE (public QR form) — light clean
+   ──────────────────────────────────────────────────────────── */
+.register-page {
+  min-height: 100vh;
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+}
+
+.register-header {
+  background: rgba(15,15,13,0.95);
+  border-bottom: 1px solid var(--fog);
+  padding: 0 var(--sp6);
+  height: 60px;
+  display: flex;
+  align-items: center;
+}
