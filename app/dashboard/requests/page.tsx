@@ -18,7 +18,11 @@ export default function Requests() {
   const [pendingWa, setPendingWa] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<Tab>('pending');
 
+  const [queryError, setQueryError] = useState<string | null>(null);
+
   const load = async () => {
+    setQueryError(null);
+
     // Check current user role
     const { data: { user } } = await s.auth.getUser();
     if (user) {
@@ -31,9 +35,15 @@ export default function Requests() {
       .from('pending_admissions')
       .select('*,hostels(name)')
       .is('rejected_at', null)
-      .order('created_at', { ascending: false });
+      .order('requested_at', { ascending: false });
 
-    setItems(q.data || []);
+    if (q.error) {
+      console.error('[Pending Admissions Query Error]:', q.error);
+      setQueryError(getErrorMessage(q.error));
+      setItems([]);
+    } else {
+      setItems(q.data || []);
+    }
 
     const r = await s.from('rooms').select('id,room_number,bed_capacity,hostel_id,rent_amount');
     const availability = await Promise.all(
@@ -143,6 +153,12 @@ export default function Requests() {
             : 'Review self-applications, provide final owner sign-off on manager approvals, or flag items.'}
         </p>
       </div>
+
+      {queryError && (
+        <div className="banner error" style={{ marginBottom: 20 }}>
+          ⚠️ Could not load applications: {queryError}. Try refreshing the page.
+        </div>
+      )}
 
       {/* Workflow Tabs */}
       <div className="btn-row" style={{ marginBottom: 20 }}>

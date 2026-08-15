@@ -87,23 +87,41 @@ export default function Complaints() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {shown.map(x => {
-          const isUnverified = x.submitter_verified === false;
+          const isRoomMismatch = x.verification_status === 'room_mismatch';
+          const isUnverified = x.verification_status === 'unverified' || (x.submitter_verified === false && !isRoomMismatch);
           const hostelName = x.students?.hostels?.name
             || hostels.find(h => h.id === x.hostel_id)?.name
             || '—';
 
           return (
             <div className="card" key={x.id} style={{ opacity: x.status === 'resolved' ? 0.7 : 1 }}>
-              {/* Unverified warning banner */}
-              {isUnverified && (
+              {/* Room Mismatch Warning Banner */}
+              {isRoomMismatch && (
                 <div className="banner" style={{
                   marginBottom: 10,
-                  background: 'rgba(255,165,0,0.10)',
-                  border: '1px solid rgba(255,165,0,0.4)',
+                  background: 'rgba(255,165,0,0.12)',
+                  border: '1px solid rgba(255,165,0,0.5)',
                   color: '#ffaa44',
                   fontSize: 12,
                   borderRadius: 6,
-                  padding: '6px 10px',
+                  padding: '8px 10px',
+                  lineHeight: 1.4,
+                }}>
+                  ⚠️ <strong>Room Mismatch</strong> — Phone matched active resident <strong>{x.students?.full_name || 'Resident'}</strong>, but room selected <strong>({x.submitted_room || 'unspecified'})</strong> does not match records. Please verify directly with resident.
+                </div>
+              )}
+
+              {/* Unverified Submitter Warning Banner */}
+              {isUnverified && (
+                <div className="banner" style={{
+                  marginBottom: 10,
+                  background: 'rgba(255,100,100,0.10)',
+                  border: '1px solid rgba(255,100,100,0.4)',
+                  color: '#ff6666',
+                  fontSize: 12,
+                  borderRadius: 6,
+                  padding: '8px 10px',
+                  lineHeight: 1.4,
                 }}>
                   ⚠️ <strong>Unverified submitter</strong> — phone {x.public_submitter_phone ? `(${x.public_submitter_phone}) ` : ''}not matched to an active resident. Review before acting.
                 </div>
@@ -119,9 +137,14 @@ export default function Complaints() {
                   </span>
                 </div>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  {isUnverified && (
+                  {isRoomMismatch && (
                     <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 7px', borderRadius: 4, background: 'rgba(255,165,0,0.15)', color: '#ffaa44', border: '1px solid rgba(255,165,0,0.3)' }}>
-                      Public
+                      Room Mismatch
+                    </span>
+                  )}
+                  {isUnverified && (
+                    <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 7px', borderRadius: 4, background: 'rgba(255,100,100,0.15)', color: '#ff6666', border: '1px solid rgba(255,100,100,0.3)' }}>
+                      Unverified
                     </span>
                   )}
                   <span className={`badge ${x.status === 'open' ? 'badge-open' : 'badge-resolved'}`}>{x.status}</span>

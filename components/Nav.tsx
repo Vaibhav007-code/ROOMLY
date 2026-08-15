@@ -11,6 +11,7 @@ const links: [string, string, string][] = [
   ['/dashboard/students',  '👤', 'Residents'],
   ['/dashboard/rent',      '₹',  'Rent'],
   ['/dashboard/complaints','💬', 'Issues'],
+  ['/dashboard/managers',  '👥', 'Team'],
 ];
 
 export function Nav() {

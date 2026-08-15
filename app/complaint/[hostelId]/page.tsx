@@ -16,6 +16,8 @@ export default function PublicComplaint({ params }: { params: { hostelId: string
     const phone = String(f.get('phone') || '').trim();
     const text = String(f.get('complaint') || '').trim();
 
+    const room = String(f.get('room') || '').trim();
+
     if (!phone) return setNote('Please enter your phone number.');
     if (!text) return setNote('Please describe your complaint.');
 
@@ -27,27 +29,15 @@ export default function PublicComplaint({ params }: { params: { hostelId: string
 
     setLoading(true);
 
-    let photoPath: string | null = null;
-
-    // Optional photo upload
-    if (photoFile) {
-      const ext = photoFile.name.split('.').pop() || 'jpg';
-      const uploadPath = `public/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: upErr } = await supabaseBrowser()
-        .storage.from('complaint-photos')
-        .upload(uploadPath, photoFile, { contentType: photoFile.type });
-      if (upErr) {
-        setLoading(false);
-        return setNote('Photo upload failed — you can still submit without a photo.');
-      }
-      photoPath = uploadPath;
-    }
+    // TODO: re-enable photo upload once storage/RLS issue is fixed
+    const photoPath: string | null = null;
 
     const { error } = await supabaseBrowser().rpc('submit_public_complaint', {
       p_hostel: params.hostelId,
       p_phone: phone,
       p_text: text,
       p_photo: photoPath,
+      p_room: room || null,
     });
 
     setLoading(false);
@@ -115,6 +105,17 @@ export default function PublicComplaint({ params }: { params: { hostelId: string
                 </div>
 
                 <div>
+                  <label className="label">Room Number (Optional)</label>
+                  <input
+                    name="room"
+                    placeholder="e.g. 102 or B-204"
+                  />
+                  <p style={{ fontSize: 11, color: 'var(--charcoal)', marginTop: 4 }}>
+                    helps management verify your identity and locate your room quickly.
+                  </p>
+                </div>
+
+                <div>
                   <label className="label">Complaint Details *</label>
                   <textarea
                     name="complaint"
@@ -125,18 +126,7 @@ export default function PublicComplaint({ params }: { params: { hostelId: string
                   />
                 </div>
 
-                <div>
-                  <label className="label">Photo (Optional)</label>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    style={{ padding: '8px 0', background: 'none', border: 'none', fontSize: 13 }}
-                    onChange={e => setPhotoFile(e.target.files?.[0] || null)}
-                  />
-                  <p style={{ fontSize: 11, color: 'var(--charcoal)', marginTop: 4 }}>
-                    JPG / PNG / WebP, max 5 MB. Helps the team understand the issue faster.
-                  </p>
-                </div>
+                {/* TODO: re-enable photo upload once storage/RLS issue is fixed */}
 
                 {note && (
                   <div className="banner error">{note}</div>

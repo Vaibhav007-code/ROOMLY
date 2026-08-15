@@ -10,23 +10,29 @@
 alter table public.complaints
   add column if not exists public_submitter_phone text,
   add column if not exists submitter_verified boolean not null default true,
-  add column if not exists hostel_id uuid references public.hostels(id) on delete cascade;
+  add column if not exists hostel_id uuid references public.hostels(id) on delete cascade,
+  add column if not exists submitted_room text,
+  add column if not exists verification_status text not null default 'verified';
 
 -- Make student_id optional (null = anonymous/unverified public submission)
 alter table public.complaints alter column student_id drop not null;
 
 -- RPC: submit_public_complaint
--- Called by anonymous users (anon key). Tries to match phone to an active student.
--- Always inserts, but flags submitter_verified accordingly.
+-- Called by anonymous users (anon key). Tries to match phone AND room to an active student.
+-- Always inserts, but flags submitter_verified and verification_status accordingly.
 create or replace function public.submit_public_complaint(
   p_hostel   uuid,
   p_phone    text,
   p_text     text,
-  p_photo    text default null
+  p_photo    text default null,
+  p_room     text default null
 ) returns uuid language plpgsql security definer set search_path=public as $$
 declare
-  v_student_id uuid;
-  v_id         uuid;
+  v_student_id  uuid;
+  v_actual_room text;
+  v_status      text := 'unverified';
+  v_verified    boolean := false;
+  v_id          uuid;
 begin
   -- Hostel must exist
   if not exists(select 1 from hostels where id = p_hostel) then
@@ -45,14 +51,44 @@ begin
     and (phone = trim(p_phone) or whatsapp_number = trim(p_phone))
   limit 1;
 
-  insert into complaints(hostel_id, student_id, description, photo_path, submitter_verified, public_submitter_phone)
+  if v_student_id is not null then
+    -- Get current assigned room number for this student
+    select r.room_number into v_actual_room
+    from room_assignments ra
+    join rooms r on r.id = ra.room_id
+    where ra.student_id = v_student_id and ra.moved_out_at is null
+    limit 1;
+
+    if p_room is not null and trim(p_room) <> '' then
+      if lower(trim(p_room)) = lower(trim(coalesce(v_actual_room, ''))) then
+        v_status := 'verified';
+        v_verified := true;
+      else
+        v_status := 'room_mismatch';
+        v_verified := false;
+      end if;
+    else
+      v_status := 'verified';
+      v_verified := true;
+    end if;
+  else
+    v_status := 'unverified';
+    v_verified := false;
+  end if;
+
+  insert into complaints(
+    hostel_id, student_id, description, photo_path,
+    submitter_verified, public_submitter_phone, submitted_room, verification_status
+  )
   values(
     p_hostel,
-    v_student_id,             -- null if not matched
+    v_student_id,
     trim(p_text),
     nullif(trim(coalesce(p_photo, '')), ''),
-    v_student_id is not null, -- true only if we matched a real student
-    trim(p_phone)
+    v_verified,
+    trim(p_phone),
+    nullif(trim(coalesce(p_room, '')), ''),
+    v_status
   )
   returning id into v_id;
 
@@ -60,7 +96,7 @@ begin
 end $$;
 
 -- Grant to anon so no login is needed
-grant execute on function public.submit_public_complaint(uuid, text, text, text) to anon, authenticated;
+grant execute on function public.submit_public_complaint(uuid, text, text, text, text) to anon, authenticated;
 
 -- Allow owners to read all complaints for their hostels (including anonymous ones)
 -- The existing complaints_owner policy uses owns_student(student_id) which fails when student_id is null
@@ -165,6 +201,10 @@ create policy students_manager_read on public.students for select
 create policy students_manager_write on public.students for update
   using(exists(select 1 from manager_hostels where manager_id = auth.uid() and hostel_id = students.hostel_id))
   with check(exists(select 1 from manager_hostels where manager_id = auth.uid() and hostel_id = students.hostel_id));
+
+-- hostels: managers can read hostels they manage
+create policy hostels_manager_read on public.hostels for select
+  using(manages_hostel(id));
 
 -- rooms: managers can read rooms in their hostels
 create policy rooms_manager_read on public.rooms for select

@@ -5,8 +5,35 @@ import { buildWhatsAppLink, normalisePhone } from '@/lib/whatsapp';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { getErrorMessage } from '@/lib/errorMessages';
 
+// ─── Rent Status Calculation Helper (Task 2) ─────────────────────────
+function getStudentRentStatus(student: any) {
+  const payments: any[] = student.rent_payments || [];
+  const paidRows = payments.filter(p => p.status === 'paid').sort((a, b) => new Date(b.paid_at || b.due_date).getTime() - new Date(a.paid_at || a.due_date).getTime());
+  const unpaidRows = payments.filter(p => p.status !== 'paid').sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+
+  const lastPaid = paidRows[0]
+    ? {
+        amount: paidRows[0].amount_paid || paidRows[0].amount_due,
+        date: paidRows[0].paid_at ? new Date(paidRows[0].paid_at).toLocaleDateString('en-IN') : paidRows[0].due_date,
+        settledVia: paidRows[0].settled_via,
+      }
+    : null;
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  let status: 'paid' | 'due' | 'overdue' = 'paid';
+  let nextDue: string | null = null;
+
+  if (unpaidRows.length > 0) {
+    const oldestUnpaid = unpaidRows[0];
+    nextDue = oldestUnpaid.due_date;
+    status = oldestUnpaid.due_date < todayStr ? 'overdue' : 'due';
+  }
+
+  return { lastPaid, status, nextDue };
+}
+
 // ─── Move-Out Modal ─────────────────────────────────────────────────────────
-type MoveOutTarget = { id: string; full_name: string; room?: string; hostel?: string } | null;
+type MoveOutTarget = { id: string; full_name: string; room?: string; hostel?: string; security_settlement?: string } | null;
 
 function MoveOutModal({
   target,
@@ -30,7 +57,11 @@ function MoveOutModal({
           Are you sure? This will mark <strong style={{ color: 'var(--ink)' }}>{target.full_name}</strong> as moved out,
           free up{target.room ? ` Room ${target.room}` : ' their room'}, and remove them from active rent queues.
           <br />
-          <span style={{ fontSize: 12, color: 'var(--signal)' }}>Full history (rent, complaints, contracts) will be preserved in Former Residents.</span>
+          {target.security_settlement && (
+            <span style={{ fontSize: 12, color: 'var(--signal)', display: 'block', marginTop: 6 }}>
+              Deposit settlement status ({target.security_settlement}) will be preserved in Former Residents.
+            </span>
+          )}
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div>
@@ -51,7 +82,7 @@ function MoveOutModal({
   );
 }
 
-// ─── Student Detail Drawer with Complete Action Cards Grid ────────────────────
+// ─── Student Detail Drawer with Complete 7 Action Cards Grid ────────────────────
 function StudentDetailDrawer({
   student,
   rooms,
@@ -60,6 +91,7 @@ function StudentDetailDrawer({
   onContract,
   onReminder,
   onMoveOut,
+  onGiveNotice,
   onUpdateDepositStatus,
 }: {
   student: any;
@@ -69,6 +101,7 @@ function StudentDetailDrawer({
   onContract: (st: any) => void;
   onReminder: (st: any) => void;
   onMoveOut: (st: any) => void;
+  onGiveNotice: (st: any, date: string) => void;
   onUpdateDepositStatus: (stId: string, status: string, notes: string) => void;
 }) {
   const router = useRouter();
@@ -76,14 +109,20 @@ function StudentDetailDrawer({
   const [transferRoomId, setTransferRoomId] = useState('');
   const [transferring, setTransferring] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
+  const [showNoticeInput, setShowNoticeInput] = useState(false);
+
+  // Default notice date: today + 30 days
+  const defaultNoticeDate = new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10);
+  const [noticeDate, setNoticeDate] = useState(student?.intended_move_out_date || defaultNoticeDate);
 
   // Deposit tracking state (Section 5)
-  const [depStatus, setDepStatus] = useState(student?.deposit_status || 'pending');
-  const [depNotes, setDepNotes] = useState(student?.deposit_notes || '');
+  const [depStatus, setDepStatus] = useState(student?.deposit_status || student?.security_settlement || 'pending');
+  const [depNotes, setDepNotes] = useState(student?.deposit_notes || student?.security_settlement_note || '');
 
   if (!student) return null;
   const activeAssignment = student.room_assignments?.find((r: any) => !r.moved_out_at);
   const isActive = student.status === 'active';
+  const rentStatus = getStudentRentStatus(student);
 
   // Room transfer handler
   async function handleTransfer() {
@@ -100,7 +139,6 @@ function StudentDetailDrawer({
     }
   }
 
-  // Calculate duration of stay
   function calculateStayDuration() {
     const start = new Date(student.admission_date);
     const end = student.moved_out_at ? new Date(student.moved_out_at) : new Date();
@@ -120,10 +158,15 @@ function StudentDetailDrawer({
             <h3 style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 20, margin: 0 }}>
               {student.full_name}
             </h3>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4, flexWrap: 'wrap' }}>
               <span className={`badge ${isActive ? 'badge-active' : 'badge-inactive'}`}>
                 {student.status} Resident
               </span>
+              {student.notice_given_at && (
+                <span className="badge" style={{ background: 'rgba(255,165,0,0.15)', color: '#ffaa44', border: '1px solid rgba(255,165,0,0.3)' }}>
+                  ⚠️ On Notice (Leaving {student.intended_move_out_date})
+                </span>
+              )}
               <span style={{ fontSize: 12, color: 'var(--charcoal)' }}>
                 🏢 {student.hostels?.name}
               </span>
@@ -143,13 +186,30 @@ function StudentDetailDrawer({
           </div>
           <div><span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--charcoal)', display: 'block' }}>Security Deposit</span><span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600, fontSize: 13 }}>₹{student.security_deposit}</span></div>
           <div><span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--charcoal)', display: 'block' }}>Current Room</span><span style={{ fontSize: 13, fontWeight: 600 }}>{activeAssignment?.rooms?.room_number || '—'}</span></div>
-          {student.aadhaar_number && (
-            <div style={{ gridColumn: 'span 2' }}><span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--charcoal)', display: 'block' }}>Aadhaar</span><span style={{ fontVariantNumeric: 'tabular-nums', fontSize: 13 }}>{student.aadhaar_number}</span></div>
-          )}
+
+          {/* Task 2: Rent Status Details in Drawer */}
+          <div style={{ gridColumn: 'span 2', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 8, marginTop: 4 }}>
+            <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--charcoal)', display: 'block' }}>Rent Status</span>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 2, flexWrap: 'wrap' }}>
+              <span className={`badge ${rentStatus.status === 'paid' ? 'badge-active' : rentStatus.status === 'due' ? 'badge-pending' : 'badge-inactive'}`}>
+                {rentStatus.status.toUpperCase()}
+              </span>
+              {rentStatus.lastPaid ? (
+                <span style={{ fontSize: 12, color: 'var(--charcoal)' }}>
+                  Last paid: <b>₹{rentStatus.lastPaid.amount}</b> on {rentStatus.lastPaid.date}{rentStatus.lastPaid.settledVia === 'security_deposit' ? ' (Deposit)' : ''}
+                </span>
+              ) : (
+                <span style={{ fontSize: 12, color: 'var(--charcoal)' }}>No payment history recorded</span>
+              )}
+              {rentStatus.nextDue && rentStatus.status !== 'paid' && (
+                <span style={{ fontSize: 12, color: '#ff6666' }}>Next Due: {rentStatus.nextDue}</span>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* ──────────────────────────────────────────────────────────────────────────
-           SECTION 4: Complete Resident Action Cards Grid (6 Actions)
+           SECTION 4: Complete Resident Action Cards Grid (7 Actions)
            ────────────────────────────────────────────────────────────────────────── */}
         {isActive && (
           <div style={{ marginBottom: 20 }}>
@@ -160,9 +220,7 @@ function StudentDetailDrawer({
               {/* 1. Collect Rent Card */}
               <div
                 onClick={() => { onClose(); router.push(`/dashboard/rent?studentId=${student.id}`); }}
-                style={{
-                  background: 'var(--paper)', border: '1px solid var(--fog)', borderRadius: 8, padding: 12, cursor: 'pointer',
-                }}
+                style={{ background: 'var(--paper)', border: '1px solid var(--fog)', borderRadius: 8, padding: 12, cursor: 'pointer' }}
                 className="action-card"
               >
                 <div style={{ fontSize: 18, marginBottom: 4 }}>💳</div>
@@ -173,9 +231,7 @@ function StudentDetailDrawer({
               {/* 2. Send Rent Reminder Card */}
               <div
                 onClick={() => onReminder(student)}
-                style={{
-                  background: 'var(--paper)', border: '1px solid var(--fog)', borderRadius: 8, padding: 12, cursor: 'pointer',
-                }}
+                style={{ background: 'var(--paper)', border: '1px solid var(--fog)', borderRadius: 8, padding: 12, cursor: 'pointer' }}
                 className="action-card"
               >
                 <div style={{ fontSize: 18, marginBottom: 4 }}>🔔</div>
@@ -186,9 +242,7 @@ function StudentDetailDrawer({
               {/* 3. Transfer Room Card */}
               <div
                 onClick={() => setShowTransfer(!showTransfer)}
-                style={{
-                  background: 'var(--paper)', border: showTransfer ? '1px solid var(--signal)' : '1px solid var(--fog)', borderRadius: 8, padding: 12, cursor: 'pointer',
-                }}
+                style={{ background: 'var(--paper)', border: showTransfer ? '1px solid var(--signal)' : '1px solid var(--fog)', borderRadius: 8, padding: 12, cursor: 'pointer' }}
                 className="action-card"
               >
                 <div style={{ fontSize: 18, marginBottom: 4 }}>🔄</div>
@@ -199,9 +253,7 @@ function StudentDetailDrawer({
               {/* 4. Share Login Link Card */}
               <div
                 onClick={() => onInvite(student)}
-                style={{
-                  background: 'var(--paper)', border: '1px solid var(--fog)', borderRadius: 8, padding: 12, cursor: 'pointer',
-                }}
+                style={{ background: 'var(--paper)', border: '1px solid var(--fog)', borderRadius: 8, padding: 12, cursor: 'pointer' }}
                 className="action-card"
               >
                 <div style={{ fontSize: 18, marginBottom: 4 }}>📲</div>
@@ -212,9 +264,7 @@ function StudentDetailDrawer({
               {/* 5. Tenancy Agreement Card */}
               <div
                 onClick={() => onContract(student)}
-                style={{
-                  background: 'var(--paper)', border: '1px solid var(--fog)', borderRadius: 8, padding: 12, cursor: 'pointer',
-                }}
+                style={{ background: 'var(--paper)', border: '1px solid var(--fog)', borderRadius: 8, padding: 12, cursor: 'pointer' }}
                 className="action-card"
               >
                 <div style={{ fontSize: 18, marginBottom: 4 }}>📄</div>
@@ -222,17 +272,26 @@ function StudentDetailDrawer({
                 <div style={{ fontSize: 11, color: 'var(--charcoal)', marginTop: 2 }}>PDF contract &amp; WhatsApp link</div>
               </div>
 
-              {/* 6. Mark as Moved Out Card */}
+              {/* 6. Task 3: Give Notice Card */}
+              <div
+                onClick={() => setShowNoticeInput(!showNoticeInput)}
+                style={{ background: 'var(--paper)', border: showNoticeInput ? '1px solid #ffaa44' : '1px solid var(--fog)', borderRadius: 8, padding: 12, cursor: 'pointer' }}
+                className="action-card"
+              >
+                <div style={{ fontSize: 18, marginBottom: 4 }}>📢</div>
+                <div style={{ fontWeight: 600, fontSize: 13, color: '#ffaa44' }}>Give Notice</div>
+                <div style={{ fontSize: 11, color: 'var(--charcoal)', marginTop: 2 }}>Set intended move-out date</div>
+              </div>
+
+              {/* 7. Mark as Moved Out Card */}
               <div
                 onClick={() => { onClose(); onMoveOut(student); }}
-                style={{
-                  background: 'var(--paper)', border: '1px solid rgba(255,100,100,0.3)', borderRadius: 8, padding: 12, cursor: 'pointer',
-                }}
+                style={{ background: 'var(--paper)', border: '1px solid rgba(255,100,100,0.3)', borderRadius: 8, padding: 12, cursor: 'pointer', gridColumn: 'span 2' }}
                 className="action-card"
               >
                 <div style={{ fontSize: 18, marginBottom: 4 }}>🚪</div>
                 <div style={{ fontWeight: 600, fontSize: 13, color: '#ff6666' }}>Mark as Moved Out</div>
-                <div style={{ fontSize: 11, color: 'var(--charcoal)', marginTop: 2 }}>Free room &amp; archive record</div>
+                <div style={{ fontSize: 11, color: 'var(--charcoal)', marginTop: 2 }}>Free room &amp; archive record into Former Residents</div>
               </div>
             </div>
 
@@ -254,12 +313,24 @@ function StudentDetailDrawer({
                 </div>
               </div>
             )}
+
+            {/* Inline Give Notice Input */}
+            {showNoticeInput && (
+              <div style={{ marginTop: 12, padding: 12, background: 'var(--paper)', border: '1px solid #ffaa44', borderRadius: 8 }}>
+                <label className="label">Intended Move-Out Date</label>
+                <input type="date" value={noticeDate} onChange={e => setNoticeDate(e.target.value)} style={{ marginBottom: 8 }} />
+                <div className="btn-row">
+                  <button className="btn btn-sm" onClick={() => { onGiveNotice(student, noticeDate); setShowNoticeInput(false); }}>
+                    Confirm Notice
+                  </button>
+                  <button className="btn secondary btn-sm" onClick={() => setShowNoticeInput(false)}>Cancel</button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* ──────────────────────────────────────────────────────────────────────────
-           SECTION 5: Former Resident Deposit Refund Tracker
-           ────────────────────────────────────────────────────────────────────────── */}
+        {/* SECTION 5: Deposit Settlement Tracker (Former Residents & On-Notice) */}
         {!isActive && (
           <div style={{ marginBottom: 20, padding: 14, background: 'var(--paper)', border: '1px solid var(--fog)', borderRadius: 8 }}>
             <h4 style={{ margin: '0 0 10px', fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--signal)' }}>
@@ -271,6 +342,7 @@ function StudentDetailDrawer({
                 <select value={depStatus} onChange={e => { setDepStatus(e.target.value); onUpdateDepositStatus(student.id, e.target.value, depNotes); }}>
                   <option value="pending">⏳ Pending Settlement</option>
                   <option value="returned">✅ Returned to Resident</option>
+                  <option value="apply_as_rent">🏠 Applied as Last Month Rent</option>
                   <option value="forfeited">❌ Forfeited (Damage/Dues)</option>
                 </select>
               </div>
@@ -303,7 +375,7 @@ function StudentsContent() {
   const paramRoomId = searchParams.get('roomId') || '';
   const formRef = useRef<HTMLFormElement>(null);
 
-  const [activeTab, setActiveTab] = useState<'active' | 'former'>('active');
+  const [activeTab, setActiveTab] = useState<'active' | 'notice' | 'former'>('active');
   const [searchTerm, setSearchTerm] = useState('');
   const [students, setStudents] = useState<any[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
@@ -321,7 +393,7 @@ function StudentsContent() {
   const load = async () => {
     const q = await s
       .from('students')
-      .select('*,hostels(name),room_assignments(room_id,moved_in_at,moved_out_at,rooms(room_number))')
+      .select('*,hostels(name),room_assignments(room_id,moved_in_at,moved_out_at,rooms(room_number)),rent_payments(amount_due,amount_paid,due_date,paid_at,status,settled_via)')
       .order('full_name');
     setStudents(q.data || []);
 
@@ -345,8 +417,36 @@ function StudentsContent() {
   useEffect(() => { load(); }, [paramHostelId, paramRoomId]);
 
   async function updateDepositStatus(stId: string, status: string, notes: string) {
-    const { error } = await s.from('students').update({ deposit_status: status, deposit_notes: notes }).eq('id', stId);
+    const { error } = await s.from('students').update({ deposit_status: status, security_settlement: status, deposit_notes: notes, security_settlement_note: notes }).eq('id', stId);
     if (error) alert(getErrorMessage(error)); else load();
+  }
+
+  async function handleGiveNotice(st: any, intendedDate: string) {
+    const { error } = await s.from('students').update({
+      notice_given_at: new Date().toISOString(),
+      intended_move_out_date: intendedDate,
+    }).eq('id', st.id);
+    if (error) alert(getErrorMessage(error));
+    else {
+      alert(`Notice recorded for ${st.full_name} (Intended move-out: ${intendedDate})`);
+      setDetailStudent(null);
+      load();
+    }
+  }
+
+  async function handleApplySecurityAsRent(stId: string) {
+    const { error } = await s.rpc('apply_security_as_rent', { p_student: stId });
+    if (error) alert(getErrorMessage(error));
+    else {
+      alert('Security deposit successfully applied as last month rent.');
+      load();
+    }
+  }
+
+  async function handleSetSecuritySettlement(stId: string, settlement: 'refund' | 'forfeit') {
+    const { error } = await s.from('students').update({ security_settlement: settlement, deposit_status: settlement }).eq('id', stId);
+    if (error) alert(getErrorMessage(error));
+    else load();
   }
 
   async function add(f: FormData) {
@@ -490,7 +590,7 @@ function StudentsContent() {
   }
 
   function csv() {
-    const targetList = activeTab === 'active' ? activeStudents : formerStudents;
+    const targetList = activeTab === 'active' ? activeStudents : activeTab === 'notice' ? noticeStudents : formerStudents;
     const rows = targetList.map((x: any) => {
       const activeAssignment = x.room_assignments?.find((r: any) => !r.moved_out_at);
       return {
@@ -501,8 +601,9 @@ function StudentsContent() {
         status: x.status,
         admission_date: x.admission_date,
         moved_out_at: x.moved_out_at || '',
+        intended_move_out_date: x.intended_move_out_date || '',
         security_deposit: x.security_deposit,
-        deposit_status: x.deposit_status || 'pending',
+        deposit_status: x.deposit_status || x.security_settlement || 'pending',
         hostel: x.hostels?.name || '',
         room: activeAssignment?.rooms?.room_number || '',
       };
@@ -518,9 +619,10 @@ function StudentsContent() {
   }
 
   const activeStudents = students.filter(x => x.status === 'active');
+  const noticeStudents = students.filter(x => x.status === 'active' && x.notice_given_at);
   const formerStudents = students.filter(x => x.status === 'inactive');
 
-  const currentList = (activeTab === 'active' ? activeStudents : formerStudents).filter(x =>
+  const currentList = (activeTab === 'active' ? activeStudents : activeTab === 'notice' ? noticeStudents : formerStudents).filter(x =>
     !searchTerm ||
     x.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     x.phone.includes(searchTerm) ||
@@ -537,7 +639,7 @@ function StudentsContent() {
         <div>
           <h1 style={{ margin: 0 }}>Residents Directory</h1>
           <p style={{ margin: '4px 0 0', fontSize: 14, color: 'var(--charcoal)' }}>
-            Manage active residents, track former resident deposit refunds, and export CSV reports.
+            Manage active residents, track notice periods, settlement options, and former resident deposit refunds.
           </p>
         </div>
         <button className="btn secondary btn-sm" onClick={csv} style={{ flexShrink: 0 }}>
@@ -553,6 +655,13 @@ function StudentsContent() {
             onClick={() => setActiveTab('active')}
           >
             Active Residents ({activeStudents.length})
+          </button>
+          <button
+            className={`btn ${activeTab === 'notice' ? '' : 'secondary'} btn-sm`}
+            onClick={() => setActiveTab('notice')}
+            style={noticeStudents.length > 0 ? { border: '1px solid #ffaa44', color: '#ffaa44' } : {}}
+          >
+            ⚠️ Students on Notice ({noticeStudents.length})
           </button>
           <button
             className={`btn ${activeTab === 'former' ? '' : 'secondary'} btn-sm`}
@@ -641,13 +750,15 @@ function StudentsContent() {
       {/* ── Residents List ── */}
       <div>
         <h2 style={{ margin: '0 0 12px', fontSize: 18 }}>
-          {activeTab === 'active' ? `Active Residents (${currentList.length})` : `Former Residents (${currentList.length})`}
+          {activeTab === 'active' ? `Active Residents (${currentList.length})` : activeTab === 'notice' ? `Students on Notice (${currentList.length})` : `Former Residents (${currentList.length})`}
         </h2>
 
         {currentList.length === 0 && (
           <div className="empty-state">
             {activeTab === 'active'
               ? 'No active residents found matching your query.'
+              : activeTab === 'notice'
+              ? 'No residents currently on notice.'
               : 'No former residents recorded.'}
           </div>
         )}
@@ -656,9 +767,11 @@ function StudentsContent() {
           {currentList.map((x: any) => {
             const activeAssignment = x.room_assignments?.find((r: any) => !r.moved_out_at);
             const isActive = x.status === 'active';
+            const rentStatus = getStudentRentStatus(x);
+            const isNotice = activeTab === 'notice';
 
             return (
-              <div className="card" key={x.id} style={{ opacity: isActive ? 1 : 0.85 }}>
+              <div className="card" key={x.id} style={{ opacity: isActive ? 1 : 0.85, border: x.notice_given_at && isActive ? '1px solid rgba(255,170,68,0.5)' : undefined }}>
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 8, justifyContent: 'space-between' }}>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
@@ -668,12 +781,27 @@ function StudentsContent() {
                       <span className={`badge ${isActive ? 'badge-active' : 'badge-inactive'}`}>
                         {x.status}
                       </span>
+
+                      {/* Task 2: Rent Status Compact Badge */}
+                      {isActive && (
+                        <span className={`badge ${rentStatus.status === 'paid' ? 'badge-active' : rentStatus.status === 'due' ? 'badge-pending' : 'badge-inactive'}`}>
+                          Rent: {rentStatus.status.toUpperCase()}
+                        </span>
+                      )}
+
+                      {/* Task 3: Notice Indicator */}
+                      {isActive && x.notice_given_at && (
+                        <span className="badge" style={{ background: 'rgba(255,165,0,0.15)', color: '#ffaa44', border: '1px solid rgba(255,165,0,0.3)' }}>
+                          ⚠️ On Notice — Leaving {x.intended_move_out_date || 'Soon'}
+                        </span>
+                      )}
+
                       {!isActive && (
                         <span className="badge" style={{
-                          background: x.deposit_status === 'returned' ? 'rgba(74,222,128,0.15)' : x.deposit_status === 'forfeited' ? 'rgba(255,100,100,0.15)' : 'rgba(245,197,24,0.15)',
-                          color: x.deposit_status === 'returned' ? '#4ade80' : x.deposit_status === 'forfeited' ? '#ff6666' : 'var(--signal)',
+                          background: x.deposit_status === 'returned' || x.security_settlement === 'apply_as_rent' ? 'rgba(74,222,128,0.15)' : x.deposit_status === 'forfeited' ? 'rgba(255,100,100,0.15)' : 'rgba(245,197,24,0.15)',
+                          color: x.deposit_status === 'returned' || x.security_settlement === 'apply_as_rent' ? '#4ade80' : x.deposit_status === 'forfeited' ? '#ff6666' : 'var(--signal)',
                         }}>
-                          Deposit: {x.deposit_status || 'pending'}
+                          Deposit: {x.security_settlement === 'apply_as_rent' ? 'Applied as Rent' : x.deposit_status || 'pending'}
                         </span>
                       )}
                     </div>
@@ -681,6 +809,20 @@ function StudentsContent() {
                     <div style={{ fontSize: 13, color: 'var(--charcoal)', marginTop: 3 }}>
                       📞 {x.phone}{x.email && ` · ${x.email}`}
                     </div>
+
+                    {/* Task 2: Rent Last Paid / Next Due line */}
+                    {isActive && (
+                      <div style={{ fontSize: 12, color: 'var(--charcoal)', marginTop: 3 }}>
+                        {rentStatus.lastPaid ? (
+                          <span>Last Paid: <b>₹{rentStatus.lastPaid.amount}</b> on {rentStatus.lastPaid.date}{rentStatus.lastPaid.settledVia === 'security_deposit' ? ' (Deposit)' : ''}</span>
+                        ) : (
+                          <span>No rent payments recorded</span>
+                        )}
+                        {rentStatus.nextDue && rentStatus.status !== 'paid' && (
+                          <span style={{ marginLeft: 10, color: '#ff6666' }}>Next Due: {rentStatus.nextDue}</span>
+                        )}
+                      </div>
+                    )}
 
                     <div style={{ fontSize: 12, color: 'var(--charcoal)', marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: 10 }}>
                       <span>🏢 <b>{x.hostels?.name}</b></span>
@@ -692,6 +834,22 @@ function StudentsContent() {
                         <span>Left {new Date(x.moved_out_at).toLocaleDateString('en-IN')}</span>
                       )}
                     </div>
+
+                    {/* Task 3: One-click actions for Students on Notice */}
+                    {isNotice && (
+                      <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid var(--fog)', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                        <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#ffaa44', fontWeight: 600 }}>Deposit Settlement:</span>
+                        <button className="btn btn-sm" style={{ fontSize: 11, background: 'var(--signal)', color: '#000' }} onClick={() => handleApplySecurityAsRent(x.id)}>
+                          🏠 Apply Security as Last Month Rent
+                        </button>
+                        <button className="btn secondary btn-sm" style={{ fontSize: 11 }} onClick={() => handleSetSecuritySettlement(x.id, 'refund')}>
+                          ✅ Refund at Move-out
+                        </button>
+                        <button className="btn secondary btn-sm" style={{ fontSize: 11, color: '#ff6666' }} onClick={() => handleSetSecuritySettlement(x.id, 'forfeit')}>
+                          ❌ Forfeit
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <button className="btn secondary btn-sm" onClick={() => setDetailStudent(x)} style={{ flexShrink: 0, fontSize: 12 }}>
@@ -713,7 +871,8 @@ function StudentsContent() {
           onInvite={triggerInvite}
           onContract={triggerContractRegen}
           onReminder={triggerReminder}
-          onMoveOut={st => setMoveOutTarget({ id: st.id, full_name: st.full_name, room: st.room_assignments?.find((r: any) => !r.moved_out_at)?.rooms?.room_number, hostel: st.hostels?.name })}
+          onMoveOut={st => setMoveOutTarget({ id: st.id, full_name: st.full_name, room: st.room_assignments?.find((r: any) => !r.moved_out_at)?.rooms?.room_number, hostel: st.hostels?.name, security_settlement: st.security_settlement || st.deposit_status })}
+          onGiveNotice={handleGiveNotice}
           onUpdateDepositStatus={updateDepositStatus}
         />
       )}

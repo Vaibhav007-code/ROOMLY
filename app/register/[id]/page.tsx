@@ -84,6 +84,7 @@ export default function RegisterUnified({ params }: { params: { id: string } }) 
     setNote('');
     const phone = String(f.get('phone') || '').trim();
     const text = String(f.get('complaint') || '').trim();
+    const room = String(f.get('room') || '').trim();
     const hostel = selectedHostelId || String(f.get('hostel') || '');
 
     if (!hostel) return setNote('Please select a hostel.');
@@ -94,21 +95,15 @@ export default function RegisterUnified({ params }: { params: { id: string } }) 
 
     setLoading(true);
 
-    let photoPath: string | null = null;
-    if (photoFile) {
-      const ext = photoFile.name.split('.').pop() || 'jpg';
-      const uploadPath = `public/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: upErr } = await supabaseBrowser()
-        .storage.from('complaint-photos')
-        .upload(uploadPath, photoFile, { contentType: photoFile.type });
-      if (!upErr) photoPath = uploadPath;
-    }
+    // TODO: re-enable photo upload once storage/RLS issue is fixed
+    const photoPath: string | null = null;
 
     const { error } = await supabaseBrowser().rpc('submit_public_complaint', {
       p_hostel: hostel,
       p_phone: phone,
       p_text: text,
       p_photo: photoPath,
+      p_room: room || null,
     });
     setLoading(false);
     if (error) setNote(getErrorMessage(error)); else setDone(true);
@@ -264,13 +259,17 @@ export default function RegisterUnified({ params }: { params: { id: string } }) 
                       </p>
                     </div>
                     <div>
+                      <label className="label">Room Number (Optional)</label>
+                      <input name="room" placeholder="e.g. 102 or B-204" />
+                      <p style={{ fontSize: 11, color: 'var(--charcoal)', marginTop: 4 }}>
+                        helps management verify your identity and locate your room quickly.
+                      </p>
+                    </div>
+                    <div>
                       <label className="label">Complaint Details *</label>
                       <textarea name="complaint" placeholder="Describe your issue in detail…" rows={5} required style={{ resize: 'vertical' }} />
                     </div>
-                    <div>
-                      <label className="label">Photo (Optional)</label>
-                      <input type="file" accept="image/jpeg,image/png,image/webp" style={{ padding: '8px 0', background: 'none', border: 'none', fontSize: 13 }} onChange={e => setPhotoFile(e.target.files?.[0] || null)} />
-                    </div>
+                    {/* TODO: re-enable photo upload once storage/RLS issue is fixed */}
                     {note && <div className="banner error">{note}</div>}
                     <button type="submit" className="btn" disabled={loading} style={{ marginTop: 4 }}>
                       {loading && <span className="spinner light" />}
