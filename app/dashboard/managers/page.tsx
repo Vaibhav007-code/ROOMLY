@@ -7,6 +7,8 @@ export default function Managers() {
   const s = supabaseBrowser();
   const [hostels, setHostels] = useState<any[]>([]);
   const [managers, setManagers] = useState<any[]>([]);
+  const [role, setRole] = useState<string | null>(null);
+  const [loadingRole, setLoadingRole] = useState(true);
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [selectedHostels, setSelectedHostels] = useState<string[]>([]);
@@ -15,6 +17,13 @@ export default function Managers() {
   const [success, setSuccess] = useState('');
 
   const load = async () => {
+    const { data: { user } } = await s.auth.getUser();
+    if (user) {
+      const { data: profile } = await s.from('profiles').select('role').eq('id', user.id).maybeSingle();
+      setRole(profile?.role || null);
+    }
+    setLoadingRole(false);
+
     const { data: h } = await s.from('hostels').select('id,name');
     setHostels(h || []);
 
@@ -92,6 +101,20 @@ export default function Managers() {
   }, {});
 
   const managerList = Object.values(grouped) as any[];
+
+  if (loadingRole) {
+    return <div className="page" style={{ color: 'var(--charcoal)', paddingTop: 40 }}>Loading…</div>;
+  }
+
+  if (role !== 'owner') {
+    return (
+      <div className="page">
+        <div className="banner error" style={{ padding: 20, fontSize: 15 }}>
+          ⛔ <strong>Access Denied:</strong> Only hostel owners can access team management and invite managers.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page">

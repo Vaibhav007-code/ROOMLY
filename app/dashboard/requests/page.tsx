@@ -95,6 +95,7 @@ export default function Requests() {
           duration: t.contractDuration || 11,
         });
         setPendingWa(v => ({ ...v, [x.id]: waUrl }));
+        window.open(waUrl, '_blank');
       } catch (e) { /* ignore */ }
     }
 
@@ -247,18 +248,18 @@ export default function Requests() {
 
               {/* Lease terms for new pending items */}
               {activeTab === 'pending' && !isDone && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%,220px),1fr))', gap: 12 }}>
-                  <div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%,220px),1fr))', gap: 12, width: '100%' }}>
+                  <div style={{ minWidth: 0 }}>
                     <label className="label">Security Deposit (₹)</label>
                     <input type="number" placeholder="5000" onChange={e => set(x.id, 'deposit', e.target.value)} />
                   </div>
-                  <div>
+                  <div style={{ minWidth: 0 }}>
                     <label className="label">Contract Duration (Months)</label>
                     <input type="number" defaultValue="11" placeholder="11" onChange={e => set(x.id, 'contractDuration', e.target.value)} />
                   </div>
-                  <div style={{ gridColumn: 'span 1' }}>
+                  <div style={{ minWidth: 0, gridColumn: 'span 1' }}>
                     <label className="label">Assign Available Room *</label>
-                    <select value={t.room || ''} onChange={e => set(x.id, 'room', e.target.value)}>
+                    <select value={t.room || ''} onChange={e => set(x.id, 'room', e.target.value)} style={{ width: '100%', maxWidth: '100%' }}>
                       <option value="">Choose Available Room</option>
                       {hostelRooms.map(r => (
                         <option value={r.id} key={r.id}>

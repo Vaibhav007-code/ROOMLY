@@ -16,14 +16,21 @@ export default function RegisterUnified({ params }: { params: { id: string } }) 
   const [done, setDone] = useState(false);
   const [loadingHostels, setLoadingHostels] = useState(true);
 
-  // Complaint-specific state
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-
   useEffect(() => {
     (async () => {
       const s = supabaseBrowser();
 
-      // 1. Check if params.id is a hostel ID directly
+      // Attempt 1: Call SECURITY DEFINER RPC to bypass RLS safely for unauthenticated users
+      const { data: rpcData, error: rpcError } = await s.rpc('get_public_hostel_info', { p_id: params.id });
+
+      if (!rpcError && rpcData && Array.isArray(rpcData) && rpcData.length > 0) {
+        setHostels(rpcData);
+        if (rpcData.length === 1) setSelectedHostelId(rpcData[0].id);
+        setLoadingHostels(false);
+        return;
+      }
+
+      // Fallback: Direct table queries (for existing sessions or migration compatibility)
       const { data: singleHostel } = await s
         .from('hostels')
         .select('id,name')
@@ -37,7 +44,6 @@ export default function RegisterUnified({ params }: { params: { id: string } }) 
         return;
       }
 
-      // 2. Otherwise check if params.id is an owner_id
       const { data: ownerHostels } = await s
         .from('hostels')
         .select('id,name')
@@ -50,7 +56,6 @@ export default function RegisterUnified({ params }: { params: { id: string } }) 
     })();
   }, [params.id]);
 
-  // ── Admission submit ─────────────────────────────────────────────────────────
   async function submitAdmission(f: FormData) {
     setNote('');
     const phone = String(f.get('phone') || '').trim();
@@ -79,7 +84,6 @@ export default function RegisterUnified({ params }: { params: { id: string } }) 
     if (error) setNote(getErrorMessage(error)); else setDone(true);
   }
 
-  // ── Complaint submit ─────────────────────────────────────────────────────────
   async function submitComplaint(f: FormData) {
     setNote('');
     const phone = String(f.get('phone') || '').trim();
@@ -94,8 +98,6 @@ export default function RegisterUnified({ params }: { params: { id: string } }) 
     try { normalisePhone(phone); } catch (e) { return setNote(getErrorMessage(e)); }
 
     setLoading(true);
-
-    // TODO: re-enable photo upload once storage/RLS issue is fixed
     const photoPath: string | null = null;
 
     const { error } = await supabaseBrowser().rpc('submit_public_complaint', {
@@ -109,19 +111,19 @@ export default function RegisterUnified({ params }: { params: { id: string } }) 
     if (error) setNote(getErrorMessage(error)); else setDone(true);
   }
 
-  // ── Hostel selector (shared between modes) ───────────────────────────────────
   const hostelSelector = hostels.length > 1 ? (
     <div>
-      <label className="label">Select Hostel *</label>
+      <label className="label" style={{ color: '#E4E8E1' }}>Select Hostel *</label>
       <select
         name="hostel"
         required
         value={selectedHostelId}
         onChange={e => setSelectedHostelId(e.target.value)}
+        style={{ background: 'rgba(255,255,255,0.08)', color: '#FFFFFF', borderColor: 'rgba(168, 217, 143, 0.3)' }}
       >
-        <option value="">Choose your hostel…</option>
+        <option value="" style={{ background: '#16281F', color: '#FFF' }}>Choose your hostel…</option>
         {hostels.map(h => (
-          <option key={h.id} value={h.id}>{h.name}</option>
+          <option key={h.id} value={h.id} style={{ background: '#16281F', color: '#FFF' }}>{h.name}</option>
         ))}
       </select>
     </div>
@@ -132,25 +134,25 @@ export default function RegisterUnified({ params }: { params: { id: string } }) 
     : 'Self-Service Portal';
 
   return (
-    <div className="register-page">
-      <header className="register-header">
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(180deg, #16281F 0%, #0D1813 100%)', display: 'flex', flexDirection: 'column' }}>
+      <header style={{ borderBottom: '1px solid rgba(168, 217, 143, 0.15)', padding: '0 24px', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
           <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
             <div style={{
-              width: 32, height: 32, borderRadius: 6,
-              background: '#F5C518',
+              width: 34, height: 34, borderRadius: 8,
+              background: 'var(--primary-gradient)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 18, color: '#0A0A0A',
+              fontFamily: "'Poppins', sans-serif", fontWeight: 700, fontSize: 18, color: '#16281F',
             }}>R</div>
             <div>
-              <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 17, color: '#F5C518', display: 'block', lineHeight: 1 }}>Roomly</span>
-              <span style={{ fontSize: 12, color: 'var(--charcoal)', display: 'block', marginTop: 2 }}>{headerSubtitle}</span>
+              <span style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 600, fontSize: 17, color: '#F7F7F2', display: 'block', lineHeight: 1 }}>Roomly</span>
+              <span style={{ fontSize: 12, color: '#A8D98F', display: 'block', marginTop: 2 }}>{headerSubtitle}</span>
             </div>
           </Link>
           {mode !== 'choose' && (
             <button
               onClick={() => { setMode('choose'); setDone(false); setNote(''); setSelectedHostelId(hostels.length === 1 ? hostels[0].id : ''); }}
-              style={{ background: 'none', border: 'none', color: 'var(--charcoal)', fontSize: 13, cursor: 'pointer', padding: '4px 8px' }}
+              style={{ background: 'none', border: 'none', color: '#A8D98F', fontSize: 13, cursor: 'pointer', padding: '4px 8px' }}
             >
               ← Back
             </button>
@@ -160,70 +162,81 @@ export default function RegisterUnified({ params }: { params: { id: string } }) 
 
       <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 16px 80px' }}>
         {loadingHostels ? (
-          <div style={{ color: 'var(--charcoal)', textAlign: 'center' }}>Loading…</div>
+          <div style={{ color: '#A8D98F', textAlign: 'center' }}>Loading…</div>
         ) : hostels.length === 0 ? (
-          <div className="card" style={{ width: '100%', maxWidth: 440, textAlign: 'center', padding: 32 }}>
-            <p style={{ color: 'var(--charcoal)' }}>This registration link is no longer active.</p>
+          <div className="glass-card" style={{ width: '100%', maxWidth: 440, textAlign: 'center', padding: 32 }}>
+            <h3 style={{ fontSize: 20, color: '#F7F7F2', marginBottom: 8 }}>No Active Hostels Found</h3>
+            <p style={{ color: '#A8D98F', fontSize: 14, lineHeight: 1.6, margin: 0 }}>
+              There are no registered hostels associated with this link yet. Please contact your hostel management team for assistance.
+            </p>
           </div>
         ) : (
-
-          /* ── MODE: Choose ─────────────────────────────────────── */
           mode === 'choose' ? (
-            <div className="card" style={{ width: '100%', maxWidth: 440 }}>
-              <h1 style={{ fontSize: 22, marginBottom: 6, textAlign: 'center' }}>
+            <div className="glass-card" style={{ width: '100%', maxWidth: 440 }}>
+              <h1 style={{ fontSize: 24, marginBottom: 6, textAlign: 'center', color: '#F7F7F2' }}>
                 {hostels[0]?.name || 'Hostel'}
                 {hostels.length > 1 ? ' & More' : ''}
               </h1>
-              <p style={{ fontSize: 13, color: 'var(--charcoal)', textAlign: 'center', marginBottom: 28 }}>
+              <p style={{ fontSize: 14, color: '#A8D98F', textAlign: 'center', marginBottom: 28 }}>
                 What would you like to do?
               </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <button
                   className="btn"
-                  style={{ fontSize: 16, minHeight: 56 }}
+                  style={{ fontSize: 16, minHeight: 52 }}
                   onClick={() => setMode('admission')}
                 >
                   🏠 Apply for a Room
                 </button>
                 <button
                   className="btn secondary"
-                  style={{ fontSize: 16, minHeight: 56 }}
+                  style={{ fontSize: 16, minHeight: 52, background: 'rgba(255,255,255,0.12)', color: '#F7F7F2' }}
                   onClick={() => setMode('complaint')}
                 >
                   💬 Raise a Complaint
                 </button>
               </div>
             </div>
-
-          /* ── MODE: Admission ──────────────────────────────────── */
           ) : mode === 'admission' ? (
-            <div className="card" style={{ width: '100%', maxWidth: 480 }}>
+            <div className="glass-card" style={{ width: '100%', maxWidth: 480 }}>
               {done ? (
                 <div style={{ textAlign: 'center', padding: '16px 0' }}>
-                  <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#F5C518', margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>✓</div>
-                  <h1 style={{ fontSize: 22, marginBottom: 8 }}>Application Received!</h1>
-                  <p style={{ color: 'var(--charcoal)', fontSize: 14 }}>
+                  <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--primary-gradient)', margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, color: '#16281F', fontWeight: 'bold' }}>✓</div>
+                  <h1 style={{ fontSize: 24, marginBottom: 8, color: '#F7F7F2' }}>Application Received!</h1>
+                  <p style={{ color: '#A8D98F', fontSize: 14 }}>
                     The hostel manager will review your details and contact you shortly.
                   </p>
                 </div>
               ) : (
                 <>
-                  <h1 style={{ fontSize: 22, marginBottom: 4 }}>Apply for a Room</h1>
-                  <p style={{ fontSize: 13, color: 'var(--charcoal)', marginBottom: 20 }}>
+                  <h1 style={{ fontSize: 24, marginBottom: 4, color: '#F7F7F2' }}>Apply for a Room</h1>
+                  <p style={{ fontSize: 13, color: '#A8D98F', marginBottom: 20 }}>
                     Your details go directly to the hostel manager.
                   </p>
                   <form action={submitAdmission} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                     {hostelSelector}
-                    <div><label className="label">Full Name *</label><input name="name" placeholder="John Doe" required /></div>
-                    <div><label className="label">Phone Number *</label><input name="phone" placeholder="9876543210" inputMode="tel" required /></div>
-                    <div><label className="label">WhatsApp Number</label><input name="whatsapp" placeholder="Leave blank if same as phone" inputMode="tel" /></div>
-                    <div><label className="label">Email Address (Optional)</label><input name="email" type="email" placeholder="john@example.com" /></div>
                     <div>
-                      <label className="label">Aadhaar Number (Optional)</label>
-                      <input name="aadhaar" placeholder="12-digit Aadhaar" maxLength={12} inputMode="numeric" pattern="\d{12}" />
+                      <label className="label" style={{ color: '#E4E8E1' }}>Full Name *</label>
+                      <input name="name" placeholder="John Doe" required style={{ background: 'rgba(255,255,255,0.08)', color: '#FFFFFF', borderColor: 'rgba(168, 217, 143, 0.3)' }} />
+                    </div>
+                    <div>
+                      <label className="label" style={{ color: '#E4E8E1' }}>Phone Number *</label>
+                      <input name="phone" placeholder="9876543210" inputMode="tel" required style={{ background: 'rgba(255,255,255,0.08)', color: '#FFFFFF', borderColor: 'rgba(168, 217, 143, 0.3)' }} />
+                    </div>
+                    <div>
+                      <label className="label" style={{ color: '#E4E8E1' }}>WhatsApp Number</label>
+                      <input name="whatsapp" placeholder="Leave blank if same as phone" inputMode="tel" style={{ background: 'rgba(255,255,255,0.08)', color: '#FFFFFF', borderColor: 'rgba(168, 217, 143, 0.3)' }} />
+                    </div>
+                    <div>
+                      <label className="label" style={{ color: '#E4E8E1' }}>Email Address (Optional)</label>
+                      <input name="email" type="email" placeholder="john@example.com" style={{ background: 'rgba(255,255,255,0.08)', color: '#FFFFFF', borderColor: 'rgba(168, 217, 143, 0.3)' }} />
+                    </div>
+                    <div>
+                      <label className="label" style={{ color: '#E4E8E1' }}>Aadhaar Number (Optional)</label>
+                      <input name="aadhaar" placeholder="12-digit Aadhaar" maxLength={12} inputMode="numeric" pattern="\d{12}" style={{ background: 'rgba(255,255,255,0.08)', color: '#FFFFFF', borderColor: 'rgba(168, 217, 143, 0.3)' }} />
                     </div>
                     {note && <div className="banner error">{note}</div>}
-                    <button type="submit" className="btn" disabled={loading} style={{ marginTop: 4 }}>
+                    <button type="submit" className="btn" disabled={loading} style={{ marginTop: 8, width: '100%' }}>
                       {loading && <span className="spinner light" />}
                       {loading ? 'Submitting…' : 'Send Application'}
                     </button>
@@ -231,47 +244,44 @@ export default function RegisterUnified({ params }: { params: { id: string } }) 
                 </>
               )}
             </div>
-
-          /* ── MODE: Complaint ──────────────────────────────────── */
           ) : (
-            <div className="card" style={{ width: '100%', maxWidth: 480 }}>
+            <div className="glass-card" style={{ width: '100%', maxWidth: 480 }}>
               {done ? (
                 <div style={{ textAlign: 'center', padding: '16px 0' }}>
-                  <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#F5C518', margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>✓</div>
-                  <h1 style={{ fontSize: 22, marginBottom: 8 }}>Complaint Submitted</h1>
-                  <p style={{ color: 'var(--charcoal)', fontSize: 14, lineHeight: 1.6 }}>
+                  <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--primary-gradient)', margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, color: '#16281F', fontWeight: 'bold' }}>✓</div>
+                  <h1 style={{ fontSize: 24, marginBottom: 8, color: '#F7F7F2' }}>Complaint Submitted</h1>
+                  <p style={{ color: '#A8D98F', fontSize: 14, lineHeight: 1.6 }}>
                     Thank you. The hostel management team has received your complaint and will look into it shortly.
                   </p>
                 </div>
               ) : (
                 <>
-                  <h1 style={{ fontSize: 22, marginBottom: 4 }}>Raise a Complaint</h1>
-                  <p style={{ fontSize: 13, color: 'var(--charcoal)', marginBottom: 20 }}>
+                  <h1 style={{ fontSize: 24, marginBottom: 4, color: '#F7F7F2' }}>Raise a Complaint</h1>
+                  <p style={{ fontSize: 13, color: '#A8D98F', marginBottom: 20 }}>
                     Enter your registered phone number and describe your issue.
                   </p>
                   <form action={submitComplaint} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                     {hostelSelector}
                     <div>
-                      <label className="label">Your Phone Number *</label>
-                      <input name="phone" placeholder="9876543210" inputMode="tel" required autoComplete="tel" />
-                      <p style={{ fontSize: 11, color: 'var(--charcoal)', marginTop: 4 }}>
+                      <label className="label" style={{ color: '#E4E8E1' }}>Your Phone Number *</label>
+                      <input name="phone" placeholder="9876543210" inputMode="tel" required autoComplete="tel" style={{ background: 'rgba(255,255,255,0.08)', color: '#FFFFFF', borderColor: 'rgba(168, 217, 143, 0.3)' }} />
+                      <p style={{ fontSize: 11, color: '#C2CBC5', marginTop: 4 }}>
                         Must match the number you registered with.
                       </p>
                     </div>
                     <div>
-                      <label className="label">Room Number (Optional)</label>
-                      <input name="room" placeholder="e.g. 102 or B-204" />
-                      <p style={{ fontSize: 11, color: 'var(--charcoal)', marginTop: 4 }}>
-                        helps management verify your identity and locate your room quickly.
+                      <label className="label" style={{ color: '#E4E8E1' }}>Room Number (Optional)</label>
+                      <input name="room" placeholder="e.g. 102 or B-204" style={{ background: 'rgba(255,255,255,0.08)', color: '#FFFFFF', borderColor: 'rgba(168, 217, 143, 0.3)' }} />
+                      <p style={{ fontSize: 11, color: '#C2CBC5', marginTop: 4 }}>
+                        Helps management verify your identity and locate your room quickly.
                       </p>
                     </div>
                     <div>
-                      <label className="label">Complaint Details *</label>
-                      <textarea name="complaint" placeholder="Describe your issue in detail…" rows={5} required style={{ resize: 'vertical' }} />
+                      <label className="label" style={{ color: '#E4E8E1' }}>Complaint Details *</label>
+                      <textarea name="complaint" placeholder="Describe your issue in detail…" rows={5} required style={{ resize: 'vertical', background: 'rgba(255,255,255,0.08)', color: '#FFFFFF', borderColor: 'rgba(168, 217, 143, 0.3)' }} />
                     </div>
-                    {/* TODO: re-enable photo upload once storage/RLS issue is fixed */}
                     {note && <div className="banner error">{note}</div>}
-                    <button type="submit" className="btn" disabled={loading} style={{ marginTop: 4 }}>
+                    <button type="submit" className="btn" disabled={loading} style={{ marginTop: 8, width: '100%' }}>
                       {loading && <span className="spinner light" />}
                       {loading ? 'Submitting…' : 'Submit Complaint'}
                     </button>

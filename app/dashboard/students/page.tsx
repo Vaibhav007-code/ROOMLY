@@ -393,7 +393,7 @@ function StudentsContent() {
   const load = async () => {
     const q = await s
       .from('students')
-      .select('*,hostels(name),room_assignments(room_id,moved_in_at,moved_out_at,rooms(room_number)),rent_payments(amount_due,amount_paid,due_date,paid_at,status,settled_via)')
+      .select('*,hostels(name),room_assignments(room_id,moved_in_at,moved_out_at,rooms(room_number,is_ac)),rent_payments(period,amount_due,amount_paid,due_date,paid_at,status,settled_via)')
       .order('full_name');
     setStudents(q.data || []);
 
@@ -591,9 +591,27 @@ function StudentsContent() {
 
   function csv() {
     const targetList = activeTab === 'active' ? activeStudents : activeTab === 'notice' ? noticeStudents : formerStudents;
+
+    // Collect all distinct rent periods (YYYY-MM) across all residents in targetList
+    const periodSet = new Set<string>();
+    targetList.forEach((x: any) => {
+      (x.rent_payments || []).forEach((p: any) => {
+        if (p.period) periodSet.add(p.period.slice(0, 7));
+      });
+    });
+    const sortedPeriods = Array.from(periodSet).sort();
+
+    // Map YYYY-MM to readable header "Rent - MMM YYYY"
+    const monthHeaders = sortedPeriods.map(p => {
+      const d = new Date(p + '-01');
+      return `Rent - ${d.toLocaleString('en-US', { month: 'short', year: 'numeric' })}`;
+    });
+
     const rows = targetList.map((x: any) => {
       const activeAssignment = x.room_assignments?.find((r: any) => !r.moved_out_at);
-      return {
+      const roomObj = activeAssignment?.rooms;
+
+      const baseRow: Record<string, any> = {
         full_name: x.full_name,
         phone: x.phone,
         whatsapp_number: x.whatsapp_number,
@@ -605,9 +623,33 @@ function StudentsContent() {
         security_deposit: x.security_deposit,
         deposit_status: x.deposit_status || x.security_settlement || 'pending',
         hostel: x.hostels?.name || '',
-        room: activeAssignment?.rooms?.room_number || '',
+        room: roomObj?.room_number || '',
+        room_type: roomObj ? (roomObj.is_ac ? 'AC' : 'Non-AC') : '',
       };
+
+      // Add month-wise rent status
+      sortedPeriods.forEach((pKey, idx) => {
+        const headerName = monthHeaders[idx];
+        const match = (x.rent_payments || []).find((p: any) => p.period?.slice(0, 7) === pKey);
+
+        if (match) {
+          if (match.status === 'paid') {
+            baseRow[headerName] = `₹${match.amount_paid || match.amount_due}${match.settled_via === 'security_deposit' ? ' (Deposit)' : ''}`;
+          } else if (match.status === 'due') {
+            baseRow[headerName] = 'Due';
+          } else if (match.status === 'overdue') {
+            baseRow[headerName] = 'Overdue';
+          } else {
+            baseRow[headerName] = match.status;
+          }
+        } else {
+          baseRow[headerName] = '—';
+        }
+      });
+
+      return baseRow;
     });
+
     const header = Object.keys(rows[0] || {}).join(',');
     const body = rows.map(r => Object.values(r).map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([header + '\n' + body], { type: 'text/csv' });
@@ -688,20 +730,20 @@ function StudentsContent() {
             Creates a student record, generates a contract PDF, and prepares a WhatsApp link for you to send.
           </p>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%,240px),1fr))', gap: 12 }}>
-            <div><label className="label">Full Name *</label><input name="name" placeholder="Rahul Sharma" required /></div>
-            <div><label className="label">Phone Number *</label><input name="phone" placeholder="9876543210" required /></div>
-            <div><label className="label">WhatsApp Number</label><input name="whatsapp" placeholder="Leave blank if same as phone" /></div>
-            <div><label className="label">Email Address</label><input name="email" type="email" placeholder="rahul@example.com" /></div>
-            <div><label className="label">Aadhaar Number (optional)</label><input name="aadhaar" placeholder="12-digit Aadhaar" maxLength={12} inputMode="numeric" pattern="\d{12}" /></div>
-            <div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%,240px),1fr))', gap: 12, width: '100%' }}>
+            <div style={{ minWidth: 0 }}><label className="label">Full Name *</label><input name="name" placeholder="Rahul Sharma" required /></div>
+            <div style={{ minWidth: 0 }}><label className="label">Phone Number *</label><input name="phone" placeholder="9876543210" required /></div>
+            <div style={{ minWidth: 0 }}><label className="label">WhatsApp Number</label><input name="whatsapp" placeholder="Leave blank if same as phone" /></div>
+            <div style={{ minWidth: 0 }}><label className="label">Email Address</label><input name="email" type="email" placeholder="rahul@example.com" /></div>
+            <div style={{ minWidth: 0 }}><label className="label">Aadhaar Number (optional)</label><input name="aadhaar" placeholder="12-digit Aadhaar" maxLength={12} inputMode="numeric" pattern="\d{12}" /></div>
+            <div style={{ minWidth: 0 }}>
               <label className="label">Hostel *</label>
               <select name="hostel" required value={selectedHostel} onChange={e => { setSelectedHostel(e.target.value); setSelectedRoom(''); }}>
                 <option value="">Select Hostel</option>
                 {hostels.map((h: any) => (<option value={h.id} key={h.id}>{h.name}</option>))}
               </select>
             </div>
-            <div>
+            <div style={{ minWidth: 0 }}>
               <label className="label">Available Room *</label>
               <select name="room" required value={selectedRoom} onChange={e => setSelectedRoom(e.target.value)}>
                 <option value="">Select Available Room</option>
@@ -712,9 +754,9 @@ function StudentsContent() {
                 ))}
               </select>
             </div>
-            <div><label className="label">Admission Date</label><input name="admissionDate" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required /></div>
-            <div><label className="label">Security Deposit (₹)</label><input name="deposit" type="number" defaultValue="5000" required /></div>
-            <div><label className="label">Contract Duration (Months)</label><input name="contractDuration" type="number" defaultValue="11" required /></div>
+            <div style={{ minWidth: 0 }}><label className="label">Admission Date</label><input name="admissionDate" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required /></div>
+            <div style={{ minWidth: 0 }}><label className="label">Security Deposit (₹)</label><input name="deposit" type="number" defaultValue="5000" required /></div>
+            <div style={{ minWidth: 0 }}><label className="label">Contract Duration (Months)</label><input name="contractDuration" type="number" defaultValue="11" required /></div>
           </div>
 
           {addStep && (
@@ -771,11 +813,11 @@ function StudentsContent() {
             const isNotice = activeTab === 'notice';
 
             return (
-              <div className="card" key={x.id} style={{ opacity: isActive ? 1 : 0.85, border: x.notice_given_at && isActive ? '1px solid rgba(255,170,68,0.5)' : undefined }}>
+              <div className="card" key={x.id} style={{ opacity: isActive ? 1 : 0.85, border: x.notice_given_at && isActive ? '1.5px solid var(--amber)' : undefined }}>
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 8, justifyContent: 'space-between' }}>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                      <span className="text-clamp" style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 16 }}>
+                      <span className="text-clamp" style={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 16 }}>
                         {x.full_name}
                       </span>
                       <span className={`badge ${isActive ? 'badge-active' : 'badge-inactive'}`}>
@@ -784,22 +826,23 @@ function StudentsContent() {
 
                       {/* Task 2: Rent Status Compact Badge */}
                       {isActive && (
-                        <span className={`badge ${rentStatus.status === 'paid' ? 'badge-active' : rentStatus.status === 'due' ? 'badge-pending' : 'badge-inactive'}`}>
+                        <span className={`badge ${rentStatus.status === 'paid' ? 'badge-paid' : rentStatus.status === 'due' ? 'badge-due' : 'badge-overdue'}`}>
                           Rent: {rentStatus.status.toUpperCase()}
                         </span>
                       )}
 
                       {/* Task 3: Notice Indicator */}
                       {isActive && x.notice_given_at && (
-                        <span className="badge" style={{ background: 'rgba(255,165,0,0.15)', color: '#ffaa44', border: '1px solid rgba(255,165,0,0.3)' }}>
+                        <span className="badge badge-notice">
                           ⚠️ On Notice — Leaving {x.intended_move_out_date || 'Soon'}
                         </span>
                       )}
 
                       {!isActive && (
                         <span className="badge" style={{
-                          background: x.deposit_status === 'returned' || x.security_settlement === 'apply_as_rent' ? 'rgba(74,222,128,0.15)' : x.deposit_status === 'forfeited' ? 'rgba(255,100,100,0.15)' : 'rgba(245,197,24,0.15)',
-                          color: x.deposit_status === 'returned' || x.security_settlement === 'apply_as_rent' ? '#4ade80' : x.deposit_status === 'forfeited' ? '#ff6666' : 'var(--signal)',
+                          background: x.deposit_status === 'returned' || x.security_settlement === 'apply_as_rent' ? 'rgba(76, 154, 91, 0.15)' : x.deposit_status === 'forfeited' ? 'rgba(181, 83, 60, 0.15)' : 'rgba(217, 164, 65, 0.15)',
+                          color: x.deposit_status === 'returned' || x.security_settlement === 'apply_as_rent' ? '#2F5233' : x.deposit_status === 'forfeited' ? '#B5533C' : '#8F6310',
+                          border: x.deposit_status === 'returned' || x.security_settlement === 'apply_as_rent' ? '1px solid rgba(76, 154, 91, 0.3)' : x.deposit_status === 'forfeited' ? '1px solid rgba(181, 83, 60, 0.3)' : '1px solid rgba(217, 164, 65, 0.3)',
                         }}>
                           Deposit: {x.security_settlement === 'apply_as_rent' ? 'Applied as Rent' : x.deposit_status || 'pending'}
                         </span>

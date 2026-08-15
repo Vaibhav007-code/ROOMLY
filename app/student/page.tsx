@@ -57,48 +57,58 @@ export default function Student() {
     }
   }
 
-  if (!st) return <main className="page text-slate-400">Loading resident portal…</main>;
+  if (!st) return (
+    <div style={{ minHeight: '100vh', background: 'var(--cream)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <p style={{ color: 'var(--charcoal)', fontSize: 15 }}>Loading resident portal…</p>
+    </div>
+  );
 
   const room = st.room_assignments?.find((x: any) => !x.moved_out_at)?.rooms?.room_number;
 
   return (
-    <div className="min-h-screen flex flex-col bg-navy-900 text-slate-100">
-      <header className="w-full bg-navy-850/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-50">
-        <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 text-decoration-none">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white font-bold flex items-center justify-center text-lg">
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--cream)', color: 'var(--ink)' }}>
+      <header style={{ borderBottom: '1px solid var(--fog)', padding: '0 24px', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(247,247,242,0.92)', backdropFilter: 'blur(12px)', position: 'sticky', top: 0, zIndex: 50 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
+            <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--primary-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Poppins', sans-serif", fontWeight: 700, fontSize: 18, color: '#16281F' }}>
               R
             </div>
             <div>
-              <span className="font-bold text-lg text-slate-100 block leading-none">Roomly</span>
-              <span className="text-xs text-slate-400 block mt-0.5">Resident Portal</span>
+              <span style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 600, fontSize: 17, color: 'var(--forest-dark)', display: 'block', lineHeight: 1 }}>Roomly</span>
+              <span style={{ fontSize: 11, color: 'var(--charcoal)', display: 'block', marginTop: 2 }}>Resident Portal</span>
             </div>
           </Link>
         </div>
       </header>
 
-      <main className="page">
-        <span className="text-indigo-400 font-bold text-xs uppercase tracking-wider block">RESIDENT PORTAL</span>
-        <h1 className="text-3xl font-bold text-slate-100 mt-1">Hi, {st.full_name.split(' ')[0]} 👋</h1>
+      <main className="page" style={{ flex: 1, padding: '24px 16px 48px', maxWidth: 640, margin: '0 auto', width: '100%' }}>
+        <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--leaf-end)', display: 'block', marginBottom: 4 }}>
+          RESIDENT PORTAL
+        </span>
+        <h1 style={{ fontSize: 28, margin: 0, color: 'var(--forest-dark)' }}>
+          Hi, {st.full_name.split(' ')[0]} 👋
+        </h1>
 
-        <section className="card mt-4">
-          <span className="text-xs font-semibold text-slate-400 block mb-1">Your Room Assignment</span>
-          <p className="text-2xl font-bold text-slate-100">{room ? `Room ${room}` : 'Room not assigned'}</p>
+        <section className="card" style={{ marginTop: 20 }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--charcoal)', display: 'block', marginBottom: 4 }}>Your Room Assignment</span>
+          <p style={{ fontSize: 24, fontFamily: "'Poppins', sans-serif", fontWeight: 700, color: 'var(--forest-dark)', margin: 0 }}>
+            {room ? `Room ${room}` : 'Room not assigned'}
+          </p>
         </section>
 
-        <section className="card mt-4">
-          <span className="text-xs font-semibold text-slate-400 block mb-2">Rent &amp; Dues Status</span>
+        <section className="card" style={{ marginTop: 16 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--forest-dark)', display: 'block', marginBottom: 12 }}>Rent &amp; Dues Status</span>
           {st.rent_payments?.length ? (
-            <div className="space-y-2">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {st.rent_payments.map((p: any) => (
-                <div key={p.id} className="flex justify-between items-center text-xs p-2.5 rounded bg-navy-850 border border-slate-800">
+                <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '12px 14px', borderRadius: 12, background: 'var(--cream)', border: '1px solid var(--fog)' }}>
                   <div>
-                    <span className="font-semibold text-slate-200">{p.period}</span>
-                    <span className="text-slate-400 ml-2">Due: {p.due_date}</span>
+                    <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{p.period}</span>
+                    <span style={{ color: 'var(--charcoal)', marginLeft: 8, fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>Due: {p.due_date}</span>
                   </div>
-                  <div>
-                    <span className="font-semibold text-slate-200">₹{p.amount_paid} / ₹{p.amount_due}</span>
-                    <span className={`badge ml-2 ${p.status === 'paid' ? 'badge-paid' : 'badge-due'}`}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>₹{p.amount_paid} / ₹{p.amount_due}</span>
+                    <span className={`badge ${p.status === 'paid' ? 'badge-paid' : 'badge-due'}`}>
                       {p.status}
                     </span>
                   </div>
@@ -106,31 +116,31 @@ export default function Student() {
               ))}
             </div>
           ) : (
-            <p className="text-slate-400 text-xs italic">No rent payment is due right now.</p>
+            <p style={{ color: 'var(--charcoal)', fontSize: 13, fontStyle: 'italic', margin: 0 }}>No rent payment is due right now.</p>
           )}
         </section>
 
-        <form id="complaint" action={raise} className="card mt-4">
-          <span className="text-xs font-semibold text-slate-400 block mb-2">Raise a Complaint</span>
-          <textarea className="mt-1" name="description" placeholder="Describe the issue in your room or hostel..." required rows={3} />
-          <div className="mt-2">
+        <form id="complaint" action={raise} className="card" style={{ marginTop: 16 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--forest-dark)', display: 'block', marginBottom: 10 }}>Raise a Complaint</span>
+          <textarea name="description" placeholder="Describe the issue in your room or hostel..." required rows={3} />
+          <div style={{ marginTop: 12 }}>
             <label className="label">Attach Photo (Optional)</label>
-            <input name="photo" type="file" accept="image/*" className="text-xs" />
+            <input name="photo" type="file" accept="image/*" />
           </div>
-          <button className="btn mt-3 text-sm" disabled={loading}>
+          <button className="btn" style={{ marginTop: 16, width: '100%' }} disabled={loading}>
             {loading ? 'Submitting…' : 'Send Complaint'}
           </button>
         </form>
 
-        <section className="mt-6">
-          <h3 className="font-bold text-slate-100 text-base mb-3">Your Logged Complaints</h3>
+        <section style={{ marginTop: 24 }}>
+          <h3 style={{ fontSize: 16, color: 'var(--forest-dark)', marginBottom: 12 }}>Your Logged Complaints</h3>
           {complaints.length === 0 ? (
-            <p className="text-slate-400 text-xs italic">No complaints logged.</p>
+            <p style={{ color: 'var(--charcoal)', fontSize: 13, fontStyle: 'italic' }}>No complaints logged.</p>
           ) : (
-            <div className="space-y-2">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {complaints.map(c => (
-                <div className="card flex justify-between items-center text-xs" key={c.id}>
-                  <span className="text-slate-200 font-medium">{c.description}</span>
+                <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px' }} key={c.id}>
+                  <span style={{ color: 'var(--ink)', fontSize: 14, fontWeight: 500 }}>{c.description}</span>
                   <span className={`badge ${c.status === 'resolved' ? 'badge-resolved' : 'badge-open'}`}>{c.status}</span>
                 </div>
               ))}

@@ -1,156 +1,104 @@
-// Contract PDF generator – produces a standards-compliant PDF-1.4 document.
-// Keep this file server-safe (no browser APIs used).
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import fs from 'fs';
+import path from 'path';
 
-type ContractData = {
+const TEMPLATE_WIDTH = 1055;
+const TEMPLATE_HEIGHT = 1491;
+const NAVY = rgb(20 / 255, 35 / 255, 65 / 255);
+const BLACK = rgb(0, 0, 0);
+
+export interface ContractData {
   hostelName: string;
-  hostelAddress: string;
+  ownerName?: string;
+  contractNo: string;
+  contractDate: string;
   studentName: string;
-  phone: string;
-  email?: string;
-  roomNumber: string;
-  securityDeposit: number;
-  contractDuration: number;
-  admissionDate: string;
-  generatedDate: string;
-};
-
-/** Escape PDF string special characters. */
-const esc = (s: string) => String(s ?? '').replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
-
-function wrap(text: string, maxChars = 80): string[] {
-  const words = text.split(' ');
-  const lines: string[] = [];
-  let cur = '';
-  for (const w of words) {
-    if ((cur + ' ' + w).trim().length <= maxChars) {
-      cur = (cur + ' ' + w).trim();
-    } else {
-      if (cur) lines.push(cur);
-      cur = w;
-    }
-  }
-  if (cur) lines.push(cur);
-  return lines;
+  phoneNumber: string;
+  email: string;
+  college: string;
+  courseYear: string;
+  roomAllotted: string;
+  roomType: string;
+  bedNumber: string;
+  admissionDatetime: string;
+  monthlyRent: string;
+  securityDeposit: string;
+  paymentMode: string;
+  contractMonths: string;
+  validityFrom: string;
+  validityTo: string;
 }
 
-export function contractPdf(data: ContractData): Uint8Array {
-  const ops: string[] = ['BT'];
+export async function generateContractPdf(data: ContractData): Promise<Uint8Array> {
+  const templatePath = path.join(process.cwd(), 'public', 'contract-template.png');
+  const templateBytes = fs.readFileSync(templatePath);
 
-  const at = (x: number, y: number, size: number, text: string) =>
-    [`/F1 ${size} Tf`, `${x} ${y} Td`, `(${esc(text)}) Tj`, `0 0 Td`];
+  const pdfDoc = await PDFDocument.create();
+  const pngImage = await pdfDoc.embedPng(templateBytes);
+  const page = pdfDoc.addPage([TEMPLATE_WIDTH, TEMPLATE_HEIGHT]);
 
-  let y = 780;
-  const LEFT = 60;
-  const RIGHT_COL = 320;
-  const LINE = 18;
-
-  const line = (size: number, text: string, x = LEFT) => {
-    ops.push(...at(x, y, size, text));
-    y -= LINE;
-  };
-
-  const section = (title: string) => {
-    y -= 6;
-    ops.push(...at(LEFT, y, 10, title));
-    y -= 4;
-    ops.push(...at(LEFT, y, 8, '─'.repeat(90).slice(0, 80)));
-    y -= LINE - 4;
-  };
-
-  const field = (label: string, value: string) => {
-    ops.push(...at(LEFT, y, 9, label + ':'));
-    ops.push(...at(RIGHT_COL, y, 9, value));
-    y -= LINE;
-  };
-
-  // Title block
-  ops.push(`/F1 16 Tf`, `${LEFT} ${y} Td`, `(${esc('HOSTEL RESIDENCY AGREEMENT')}) Tj`, `0 0 Td`);
-  y -= 26;
-  ops.push(`/F1 10 Tf`, `${LEFT} ${y} Td`, `(This agreement is made between the hostel owner and the resident named below.) Tj`, `0 0 Td`);
-  y -= LINE * 2;
-
-  section('1. HOSTEL INFORMATION');
-  field('Hostel Name', data.hostelName);
-  field('Address', data.hostelAddress || 'Not recorded');
-  y -= 4;
-
-  section('2. RESIDENT INFORMATION');
-  field('Full Name', data.studentName);
-  field('Phone Number', data.phone);
-  field('Email Address', data.email || 'Not provided');
-  y -= 4;
-
-  section('3. ROOM INFORMATION');
-  field('Room Number', data.roomNumber);
-  field('Admission Date', data.admissionDate);
-  y -= 4;
-
-  section('4. FINANCIAL TERMS');
-  field('Security Deposit', `Rs. ${Number(data.securityDeposit).toLocaleString('en-IN')}`);
-  field('Contract Duration', `${data.contractDuration} month(s)`);
-  y -= 4;
-
-  section('5. CONTRACT PERIOD');
-  field('Contract Start', data.admissionDate);
-  field('Document Generated', data.generatedDate);
-  y -= 4;
-
-  section('6. TERMS & CONDITIONS');
-  const terms = [
-    'The resident agrees to abide by all hostel rules and regulations.',
-    'Rent is due as agreed with the hostel owner.',
-    'The security deposit is refundable at move-out, subject to deductions for',
-    '  damages beyond normal wear, outstanding dues, and hostel policy.',
-    'The resident must provide advance notice before vacating the room.',
-    'Subletting or transferring this agreement is not permitted.',
-    'The hostel owner reserves the right to terminate this agreement for',
-    '  violation of hostel rules, non-payment, or illegal activity.',
-  ];
-  for (const t of terms) {
-    ops.push(`/F1 9 Tf`, `${LEFT} ${y} Td`, `(${esc(t)}) Tj`, `0 0 Td`);
-    y -= LINE - 2;
-  }
-  y -= 8;
-
-  section('7. SIGNATURES');
-  y -= 6;
-  ops.push(`/F1 9 Tf`, `${LEFT} ${y} Td`, `(Owner / Hostel Manager) Tj`, `0 0 Td`);
-  ops.push(`/F1 9 Tf`, `${RIGHT_COL} ${y} Td`, `(Resident) Tj`, `0 0 Td`);
-  y -= 36;
-  ops.push(`/F1 9 Tf`, `${LEFT} ${y} Td`, `(Signature: ______________________________) Tj`, `0 0 Td`);
-  ops.push(`/F1 9 Tf`, `${RIGHT_COL} ${y} Td`, `(Signature: ______________________________) Tj`, `0 0 Td`);
-  y -= LINE;
-  ops.push(`/F1 9 Tf`, `${LEFT} ${y} Td`, `(Name: __________________________________) Tj`, `0 0 Td`);
-  ops.push(`/F1 9 Tf`, `${RIGHT_COL} ${y} Td`, `(Name: ${esc(data.studentName)}) Tj`, `0 0 Td`);
-  y -= LINE;
-  ops.push(`/F1 9 Tf`, `${LEFT} ${y} Td`, `(Date:  _____ / _____ / _________) Tj`, `0 0 Td`);
-  ops.push(`/F1 9 Tf`, `${RIGHT_COL} ${y} Td`, `(Date:  _____ / _____ / _________) Tj`, `0 0 Td`);
-  y -= LINE * 2;
-  ops.push(`/F1 8 Tf`, `${LEFT} ${y} Td`, `(This document was generated by Roomly on ${esc(data.generatedDate)}.) Tj`, `0 0 Td`);
-
-  ops.push('ET');
-  const stream = ops.join('\n');
-
-  const objects = [
-    '<< /Type /Catalog /Pages 2 0 R >>',
-    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>`,
-    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
-    `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
-  ];
-
-  let pdf = '%PDF-1.4\n';
-  const offsets: number[] = [0];
-  objects.forEach((obj, i) => {
-    offsets.push(pdf.length);
-    pdf += `${i + 1} 0 obj\n${obj}\nendobj\n`;
+  // Draw the template as the full-page background
+  page.drawImage(pngImage, {
+    x: 0,
+    y: 0,
+    width: TEMPLATE_WIDTH,
+    height: TEMPLATE_HEIGHT,
   });
 
-  const xrefOffset = pdf.length;
-  pdf += `xref\n0 ${objects.length + 1}\n`;
-  pdf += '0000000000 65535 f \n';
-  pdf += offsets.slice(1).map(x => String(x).padStart(10, '0') + ' 00000 n ').join('\n');
-  pdf += `\ntrailer << /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+  const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-  return new TextEncoder().encode(pdf);
+  // pdf-lib's Y origin is bottom-left; our coordinates below are top-left (from PIL/OCR).
+  // Convert every Y with: TEMPLATE_HEIGHT - y
+  const drawValue = (text: string, x: number, yFromTop: number, size = 20, font = fontRegular, color = BLACK) => {
+    page.drawText(text ?? '', {
+      x,
+      y: TEMPLATE_HEIGHT - yFromTop,
+      size,
+      font,
+      color,
+    });
+  };
+
+  // Hostel name — centered, letterhead-style, under the main title
+  const hostelNameUpper = (data.hostelName || '').toUpperCase();
+  const hostelNameWidth = fontBold.widthOfTextAtSize(hostelNameUpper, 22);
+  drawValue(hostelNameUpper, (TEMPLATE_WIDTH - hostelNameWidth) / 2, 203, 22, fontBold, NAVY);
+
+  // Contract details row
+  drawValue(data.contractNo, 225, 341);
+  drawValue(data.contractDate, 760, 341);
+
+  // Student details
+  drawValue(data.studentName, 350, 453);
+  drawValue(data.phoneNumber, 350, 494);
+  drawValue(data.email, 350, 533);
+  drawValue(data.college, 350, 573);
+  drawValue(data.courseYear, 350, 614);
+
+  // Stay details
+  drawValue(data.roomAllotted, 350, 710);
+  drawValue(data.roomType, 350, 750);
+  drawValue(data.bedNumber, 350, 791);
+  drawValue(data.admissionDatetime, 350, 832);
+
+  // Payment details
+  drawValue(data.monthlyRent, 380, 929);
+  drawValue(data.securityDeposit, 380, 970);
+  drawValue(data.paymentMode, 350, 1010);
+
+  // Contract / security validity
+  drawValue(data.contractMonths, 400, 1100);
+  drawValue(data.validityFrom, 600, 1100);
+  drawValue(data.validityTo, 780, 1100);
+
+  // Owner Name on Owner / Manager Signature line
+  if (data.ownerName) {
+    const ownerNameText = data.ownerName;
+    const ownerNameWidth = fontRegular.widthOfTextAtSize(ownerNameText, 16);
+    const ownerX = 706 - ownerNameWidth / 2;
+    drawValue(ownerNameText, ownerX, 1300, 16, fontRegular, BLACK);
+  }
+
+  return pdfDoc.save();
 }

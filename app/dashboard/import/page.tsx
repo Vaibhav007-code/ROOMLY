@@ -213,7 +213,7 @@ export default function ImportPage() {
           ))}
         </select>
 
-        <div style={{ border: '2px dashed var(--fog)', borderRadius: 8, background: 'var(--paper)', textAlign: 'center', padding: 24 }}>
+        <div style={{ border: '2px dashed var(--fog)', borderRadius: 16, background: 'var(--cream)', textAlign: 'center', padding: 32 }}>
           <input
             type="file"
             accept=".csv, .xlsx, .xls"
@@ -225,26 +225,26 @@ export default function ImportPage() {
           <label htmlFor="csv-upload" className="btn" style={{ cursor: 'pointer', display: 'inline-flex' }}>
             {uploading ? 'Processing…' : '📁 Select Excel / CSV File'}
           </label>
-          <p style={{ fontSize: 12, color: 'var(--charcoal)', marginTop: 12, lineHeight: 1.6 }}>
+          <p style={{ fontSize: 13, color: 'var(--charcoal)', marginTop: 14, lineHeight: 1.6 }}>
             Accepted columns (any order, any capitalization):<br />
-            <code style={{ fontFamily: 'monospace', color: 'var(--signal)', fontSize: 11 }}>
+            <code style={{ fontFamily: 'var(--font-body)', fontWeight: 600, color: 'var(--leaf-end)', fontSize: 12 }}>
               full_name · phone · room_number · email · deposit · contract_duration · aadhaar
             </code><br />
-            <span style={{ fontSize: 11 }}>Missing rooms are auto-created with defaults. Review after import.</span>
+            <span style={{ fontSize: 12, color: 'var(--charcoal)' }}>Missing rooms are auto-created with defaults. Review after import.</span>
           </p>
         </div>
       </div>
 
       {log.length > 0 && (
-        <div className="card" style={{ fontFamily: 'monospace', fontSize: 12, lineHeight: 1.7, maxHeight: 400, overflowY: 'auto', color: 'var(--charcoal)' }}>
+        <div className="card" style={{ fontFamily: 'monospace', fontSize: 13, lineHeight: 1.7, maxHeight: 400, overflowY: 'auto' }}>
           {log.map((line, idx) => (
             <div key={idx} style={{
-              color: line.startsWith('✅') ? 'var(--signal)' :
-                     line.startsWith('❌') ? '#ff8080' :
-                     line.startsWith('⚠️') ? '#ffaa44' :
-                     line.startsWith('🎉') ? 'var(--ink)' :
+              color: line.startsWith('✅') ? '#2F5233' :
+                     line.startsWith('❌') ? '#B5533C' :
+                     line.startsWith('⚠️') ? 'var(--amber)' :
+                     line.startsWith('🎉') ? 'var(--forest-dark)' :
                      'var(--charcoal)',
-              paddingLeft: line.startsWith('✅') || line.startsWith('❌') || line.startsWith('⚠️') ? 0 : 0,
+              fontWeight: line.startsWith('🎉') ? 700 : 500
             }}>
               {line || '\u00a0'}
             </div>

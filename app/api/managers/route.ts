@@ -13,10 +13,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Email and at least one hostel are required' }, { status: 400 });
     }
 
-    // Verify the caller owns each hostel
+    // 1. Verify caller has 'owner' role in profiles
+    const { data: profile } = await sb.from('profiles').select('role').eq('id', user.id).single();
+    if (profile?.role !== 'owner') {
+      return NextResponse.json({ error: 'Forbidden: Only hostel owners can manage team members' }, { status: 403 });
+    }
+
+    // 2. Verify caller actually owns every requested hostel
     for (const hid of hostelIds) {
-      const { data: h } = await sb.from('hostels').select('id').eq('id', hid).maybeSingle();
-      if (!h) return NextResponse.json({ error: `Hostel ${hid} not found or you don't have access` }, { status: 403 });
+      const { data: h } = await sb.from('hostels').select('id,owner_id').eq('id', hid).maybeSingle();
+      if (!h || h.owner_id !== user.id) {
+        return NextResponse.json({ error: `Hostel ${hid} not found or you do not own it` }, { status: 403 });
+      }
     }
 
     const admin = supabaseAdmin();

@@ -29,11 +29,17 @@ function SetupForm() {
   }
 
   return (
-    <form action={setup} style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 24 }}>
-      <div><label className="label">Email address</label><input name="email" type="email" placeholder="you@example.com" required /></div>
-      <div><label className="label">Password (8+ characters)</label><input name="password" type="password" minLength={8} placeholder="••••••••" required /></div>
+    <form action={setup} style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 24 }}>
+      <div>
+        <label className="label" style={{ color: '#E4E8E1' }}>Email address</label>
+        <input name="email" type="email" placeholder="you@example.com" required style={{ background: 'rgba(255,255,255,0.08)', color: '#FFFFFF', borderColor: 'rgba(168, 217, 143, 0.3)' }} />
+      </div>
+      <div>
+        <label className="label" style={{ color: '#E4E8E1' }}>Password (8+ characters)</label>
+        <input name="password" type="password" minLength={8} placeholder="••••••••" required style={{ background: 'rgba(255,255,255,0.08)', color: '#FFFFFF', borderColor: 'rgba(168, 217, 143, 0.3)' }} />
+      </div>
       {note && <div className="banner error">{note}</div>}
-      <button className="btn" disabled={loading} style={{ marginTop: 4 }}>
+      <button className="btn" disabled={loading} style={{ marginTop: 8, width: '100%' }}>
         {loading && <span className="spinner light" />}
         {loading ? 'Creating account…' : 'Create Resident Account'}
       </button>
@@ -43,23 +49,23 @@ function SetupForm() {
 
 export default function StudentSetup() {
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--paper)', display: 'flex', flexDirection: 'column' }}>
-      <header style={{ borderBottom: '1px solid var(--fog)', padding: '0 24px', height: 60, display: 'flex', alignItems: 'center' }}>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(180deg, #16281F 0%, #0D1813 100%)', display: 'flex', flexDirection: 'column' }}>
+      <header style={{ borderBottom: '1px solid rgba(168, 217, 143, 0.15)', padding: '0 24px', height: 64, display: 'flex', alignItems: 'center' }}>
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-          <div style={{ width: 32, height: 32, borderRadius: 6, background: 'var(--signal)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 18, color: 'var(--ink)' }}>R</div>
+          <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--primary-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Poppins', sans-serif", fontWeight: 700, fontSize: 18, color: '#16281F' }}>R</div>
           <div>
-            <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 17, color: 'var(--ink)', display: 'block', lineHeight: 1 }}>Roomly</span>
-            <span style={{ fontSize: 11, color: 'var(--charcoal)', display: 'block' }}>Resident Setup</span>
+            <span style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 600, fontSize: 17, color: '#F7F7F2', display: 'block', lineHeight: 1 }}>Roomly</span>
+            <span style={{ fontSize: 12, color: '#A8D98F', display: 'block', marginTop: 2 }}>Resident Setup</span>
           </div>
         </Link>
       </header>
       <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 16px' }}>
-        <div className="card" style={{ width: '100%', maxWidth: 400 }}>
-          <h1 style={{ fontSize: 22, margin: '0 0 4px', textAlign: 'center' }}>Set up your resident login</h1>
-          <p style={{ fontSize: 13, color: 'var(--charcoal)', textAlign: 'center', margin: 0 }}>
+        <div className="glass-card" style={{ width: '100%', maxWidth: 420 }}>
+          <h1 style={{ fontSize: 24, margin: '0 0 6px', textAlign: 'center', color: '#F7F7F2' }}>Set up your resident login</h1>
+          <p style={{ fontSize: 14, color: '#A8D98F', textAlign: 'center', margin: 0 }}>
             Create an account to view your room, rent, and complaints.
           </p>
-          <Suspense fallback={<p style={{ color: 'var(--charcoal)', fontSize: 14, marginTop: 16, textAlign: 'center' }}>Loading…</p>}>
+          <Suspense fallback={<p style={{ color: '#A8D98F', fontSize: 14, marginTop: 16, textAlign: 'center' }}>Loading…</p>}>
             <SetupForm />
           </Suspense>
         </div>

@@ -160,3 +160,60 @@ begin
 end $$;
 
 grant execute on function public.apply_security_as_rent(uuid) to authenticated;
+
+-- Update manager_approve_admission RPC: sets manager_approved & owner_approved fields appropriately
+create or replace function public.manager_approve_admission(
+  p_pending uuid,
+  p_room uuid,
+  p_deposit numeric,
+  p_contract_duration integer
+) returns uuid language plpgsql security definer set search_path=public as $$
+declare
+  p        pending_admissions;
+  sid      uuid;
+  is_owner boolean;
+begin
+  select * into p from pending_admissions
+  where id = p_pending and reviewed_at is null and rejected_at is null
+  for update;
+
+  if p.id is null then
+    raise exception 'Admission is no longer pending or already reviewed';
+  end if;
+
+  is_owner := public.owns_hostel(p.hostel_id);
+
+  if not (is_owner or public.manages_hostel(p.hostel_id)) then
+    raise exception 'Access denied: You do not own or manage this hostel';
+  end if;
+
+  -- Create the student with room assignment
+  sid := public.create_student_with_room(
+    p.hostel_id, p_room,
+    p.full_name, p.email, p.phone, p.whatsapp_number,
+    current_date, p_deposit, 0, p_contract_duration,
+    p.aadhaar_number
+  );
+
+  -- Mark pending admission as reviewed
+  if is_owner then
+    update pending_admissions set
+      reviewed_at         = now(),
+      manager_approved_at = now(),
+      manager_approved_by = auth.uid(),
+      owner_approved_at   = now(),
+      owner_approved_by   = auth.uid()
+    where id = p.id;
+  else
+    update pending_admissions set
+      reviewed_at         = now(),
+      manager_approved_at = now(),
+      manager_approved_by = auth.uid()
+    where id = p.id;
+  end if;
+
+  return sid;
+end $$;
+
+grant execute on function public.manager_approve_admission(uuid, uuid, numeric, integer) to authenticated;
+
