@@ -14,6 +14,7 @@ export default function Hostels() {
   const router = useRouter();
   const [hostels, setHostels] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>();
+  const [ownerId, setOwnerId] = useState<string>('');
   const [roomData, setRoomData] = useState<Record<string, { total: number; occupied: number; available: number; students: any[] }>>({});
   const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
   const [studentDetails, setStudentDetails] = useState<{ rentPayments: any[]; complaints: any[] }>({ rentPayments: [], complaints: [] });
@@ -27,6 +28,9 @@ export default function Hostels() {
   const [editSaving, setEditSaving] = useState(false);
 
   const load = async () => {
+    const { data: { user } } = await s.auth.getUser();
+    if (user) setOwnerId(user.id);
+
     const { data: hostelList } = await s.from('hostels').select('*,rooms(*)').order('created_at');
     setHostels(hostelList || []);
     setSelected((v: any) => v || hostelList?.[0]);
@@ -181,17 +185,35 @@ export default function Hostels() {
             <button className="btn danger btn-sm" onClick={() => deleteHostel(selectedHostel)}>Delete Hostel</button>
           </div>
 
-          {/* QR card */}
-          <div className="card" style={{ marginBottom: 24 }}>
-            <h3 style={{ margin: '0 0 8px', fontSize: 15 }}>QR Self-Registration</h3>
-            <p style={{ fontSize: 13, color: 'var(--charcoal)', margin: '0 0 12px' }}>Share or print so new residents can apply themselves.</p>
-            <div style={{ background: '#fff', padding: 12, borderRadius: 8, display: 'inline-block' }}>
-              {typeof window !== 'undefined' && <QRCodeCanvas value={`${window.location.origin}/register/${selectedHostel.id}`} size={130} />}
+          {/* QR card — owner-scoped, shown once (not per-hostel) */}
+          {selectedHostel === (hostels[0]) && ownerId && (
+            <div className="card" style={{ marginBottom: 24 }}>
+              <h3 style={{ margin: '0 0 4px', fontSize: 15 }}>Your Shared QR Code</h3>
+              <p style={{ fontSize: 13, color: 'var(--charcoal)', margin: '0 0 12px', lineHeight: 1.5 }}>
+                One QR for all your hostels — residents can apply for a room <strong>or</strong> raise a complaint.
+                Hostel selection is part of the form.
+              </p>
+              <div style={{ background: '#fff', padding: 12, borderRadius: 8, display: 'inline-block', marginBottom: 10 }}>
+                <QRCodeCanvas
+                  value={`${process.env.NEXT_PUBLIC_SITE_URL || 'https://roomly-ten-beige.vercel.app'}/register/${ownerId}`}
+                  size={140}
+                />
+              </div>
+              <p style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--charcoal)', wordBreak: 'break-all', margin: '0 0 10px' }}>
+                {`${process.env.NEXT_PUBLIC_SITE_URL || 'https://roomly-ten-beige.vercel.app'}/register/${ownerId}`}
+              </p>
+              <button
+                className="btn secondary btn-sm"
+                style={{ fontSize: 12 }}
+                onClick={() => {
+                  const url = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://roomly-ten-beige.vercel.app'}/register/${ownerId}`;
+                  navigator.clipboard.writeText(url).then(() => alert('Link copied!'));
+                }}
+              >
+                📋 Copy Link
+              </button>
             </div>
-            <p style={{ fontSize: 12, marginTop: 10, fontFamily: 'monospace', color: 'var(--charcoal)', wordBreak: 'break-all' }}>
-              {typeof window !== 'undefined' ? `${window.location.origin}/register/${selectedHostel.id}` : ''}
-            </p>
-          </div>
+          )}
 
           {/* Rooms */}
           <div className="card" style={{ marginBottom: 24 }}>

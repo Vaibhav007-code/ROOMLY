@@ -58,7 +58,8 @@ async function inviteFor(studentId: string) {
   if (error) {
     console.warn('[Invite Table Notice]:', error.message);
   }
-  return `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/student/setup?code=${inviteCode}`;
+  const base = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://roomly-ten-beige.vercel.app';
+  return `${base}/student/setup?code=${inviteCode}`;
 }
 
 export async function POST(req: NextRequest) {

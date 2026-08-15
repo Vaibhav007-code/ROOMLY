@@ -9,12 +9,80 @@ function normalisePhone(value: string) {
 }
 
 export function buildWhatsAppLink(phone: string, templateType: MessageTemplate, data: Record<string, any>): string {
+  const hostel = data.hostelName || data.hostel || 'your hostel';
+  const name = data.name || 'Resident';
+
   const messages: Record<MessageTemplate, string> = {
-    rent_receipt: `Hi ${data.name}, we received your rent payment of ₹${data.amount} for ${data.hostelName || 'your hostel'}. Thank you.`,
-    rent_reminder: `Hi ${data.name}, your rent of ₹${data.amount} for ${data.hostelName || 'your hostel'} was due on ${data.dueDate || data.due}. Please pay at your earliest convenience.`,
-    contract: `Hi ${data.name}, welcome to ${data.hostelName}! Your contract is ready: ${data.contractUrl}. Security deposit: ₹${data.deposit}, duration: ${data.duration} months.`,
-    student_invite: `Hi ${data.name}, set up your HostelFlow resident login using this one-time link: ${data.inviteUrl}. This link expires in 7 days.`,
+    rent_reminder: [
+      `Dear ${name},`,
+      ``,
+      `This is a friendly reminder that your rent payment of ₹${data.amount} for *${hostel}* is due${data.dueDate ? ` on ${data.dueDate}` : ''}.`,
+      ``,
+      `Please make the payment at your earliest convenience. If you have already paid, kindly ignore this message.`,
+      ``,
+      `*Room:* ${data.room || data.roomNumber || 'As assigned'}`,
+      `*Amount Due:* ₹${data.amount}`,
+      `*Due Date:* ${data.dueDate || data.due || 'As notified'}`,
+      ``,
+      `Thank you,`,
+      `*${hostel} Management*`,
+    ].join('\n'),
+
+    rent_receipt: [
+      `Dear ${name},`,
+      ``,
+      `We have received your rent payment of *₹${data.amount}* for *${hostel}*. Thank you!`,
+      ``,
+      `*Room:* ${data.room || data.roomNumber || 'As assigned'}`,
+      `*Amount Paid:* ₹${data.amount}`,
+      `*Date:* ${data.date || new Date().toLocaleDateString('en-IN')}`,
+      ``,
+      `Your payment has been recorded. Please keep this message as your receipt.`,
+      ``,
+      `Thank you for your timely payment.`,
+      `*${hostel} Management*`,
+    ].join('\n'),
+
+    contract: [
+      `Dear ${name},`,
+      ``,
+      `Welcome to *${hostel}*! We are pleased to have you as a resident.`,
+      ``,
+      `Your tenancy agreement has been prepared. Please review and keep it for your records:`,
+      `📄 ${data.contractUrl}`,
+      ``,
+      `*Tenancy Details:*`,
+      `*Security Deposit:* ₹${data.deposit}`,
+      `*Contract Duration:* ${data.duration} months`,
+      ``,
+      `If you have any questions, please don't hesitate to reach out to us.`,
+      ``,
+      `Warm regards,`,
+      `*${hostel} Management*`,
+    ].join('\n'),
+
+    student_invite: [
+      `Dear ${name},`,
+      ``,
+      `Welcome to *${hostel || 'your hostel'}*! Your resident account is ready.`,
+      ``,
+      `Please use the link below to set up your login and access the resident portal:`,
+      `🔗 ${data.inviteUrl}`,
+      ``,
+      `*Important:* This link expires in 7 days. Please complete your setup before then.`,
+      ``,
+      `Through the portal you can:`,
+      `• View your rent payment history`,
+      `• Download your tenancy agreement`,
+      `• Submit maintenance complaints`,
+      ``,
+      `If you did not request this, please ignore this message.`,
+      ``,
+      `Regards,`,
+      `*${hostel || 'Hostel'} Management*`,
+    ].join('\n'),
   };
+
   return `https://wa.me/${normalisePhone(phone)}?text=${encodeURIComponent(messages[templateType])}`;
 }
 

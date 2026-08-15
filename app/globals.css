@@ -365,7 +365,8 @@ button { font-family: inherit; cursor: pointer; }
   left: 0;
   right: 0;
   height: 60px;
-  background: rgba(15, 15, 13, 0.95);
+  background-color: #0f0f0d; /* solid fallback so nav is never invisible */
+  background: rgba(15, 15, 13, 0.97);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--fog);
@@ -374,6 +375,7 @@ button { font-family: inherit; cursor: pointer; }
   align-items: center;
   justify-content: space-between;
   padding: 0 var(--sp6);
+  color: var(--ink); /* ensure text is never white-on-white */
 }
 
 .nav-links {
@@ -404,6 +406,22 @@ button { font-family: inherit; cursor: pointer; }
   background-color: var(--signal-tint);
   font-weight: 700;
   border: 1px solid var(--signal);
+}
+
+/* Responsive nav visibility */
+.nav-desktop {
+  display: none !important;
+}
+.nav-mobile {
+  display: flex !important;
+}
+@media (min-width: 768px) {
+  .nav-desktop {
+    display: flex !important;
+  }
+  .nav-mobile {
+    display: none !important;
+  }
 }
 
 /* ────────────────────────────────────────────────────────────
